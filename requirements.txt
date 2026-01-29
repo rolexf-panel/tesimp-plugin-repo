@@ -1,0 +1,19 @@
+# Pixeldrain Advanced Upload System
+# Python Dependencies
+
+# Telegram User API
+pyrogram>=2.0.106
+tgcrypto>=1.2.5
+
+# HTTP Client
+aiohttp>=3.9.0
+requests>=2.31.0
+
+# File Operations
+aiofiles>=23.2.1
+
+# Progress Bar
+tqdm>=4.66.1
+
+# Optional: Better logging
+colorama>=0.4.6
