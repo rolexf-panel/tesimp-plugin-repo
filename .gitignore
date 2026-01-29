@@ -1,0 +1,33 @@
+# Aider AI Metadata (Wajib diignore agar tidak mengotori repo)
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v4/
+
+# Uploader
+git-upl.sh
+.github_token
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database & Local Storage (Jika ada folder database nantinya)
+database/*.json
+!database/clones.json.example
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+
+# Executables & Scripts (Opsional)
+# Jika kamu tidak ingin script upload kamu diintip orang lain:
+# git-upl.sh.aider*
