@@ -1,225 +1,148 @@
 import os
+import asyncio
 import requests
-import time
+import aiohttp
+from telethon import TelegramClient, events
+from telethon.sessions import StringSession
+from urllib.parse import quote
 
-# --- KONFIGURASI DARI ENVIRONMENT VARIABLES ---
-TOKEN = os.environ.get("TG_BOT_TOKEN")
+# --- ENV VARIABLES ---
+BOT_TOKEN = os.environ.get("TG_BOT_TOKEN")
 PD_KEY = os.environ.get("PD_API_KEY")
-FILE_ID = os.environ.get("FILE_ID")
+API_ID = int(os.environ.get("API_ID"))
+API_HASH = os.environ.get("API_HASH")
+SESSION_STR = os.environ.get("TELETHON_SESSION")
+USERBOT_ID = int(os.environ.get("USERBOT_ID")) # ID akun userbot
+
+FORWARDED_MSG_ID = int(os.environ.get("FORWARDED_MSG_ID"))
 FILE_NAME = os.environ.get("FILE_NAME", "file.bin")
 CHAT_ID = os.environ.get("CHAT_ID")
-MESSAGE_ID = os.environ.get("MESSAGE_ID")
+MESSAGE_ID = int(os.environ.get("MESSAGE_ID"))
 
-TG_API_URL = f"https://api.telegram.org/bot{TOKEN}"
+TG_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+CANCEL_FLAG = False
 
-# Path flag untuk cancel (opsional, sebagai backup jika runner tidak langsung mati)
-CANCEL_FLAG_PATH = "/tmp/pd_cancel.txt"
-
-# --- HELPER FUNCTIONS ---
-
-def is_cancelled():
-    """Cek apakah user menekan tombol batalkan."""
-    try:
-        if os.path.exists(CANCEL_FLAG_PATH):
-            with open(CANCEL_FLAG_PATH, "r") as f:
-                return f.read().strip() == "1"
-    except:
-        pass
-    return False
-
+# --- HELPERS ---
 def edit_message(text):
-    """Mengedit pesan Telegram untuk menampilkan status/progress."""
     try:
-        requests.post(
-            f"{TG_API_URL}/editMessageText",
-            data={
-                "chat_id": CHAT_ID,
-                "message_id": MESSAGE_ID,
-                "text": text,
-                "parse_mode": "Markdown",
-            },
-        )
+        requests.post(f"{TG_API_URL}/editMessageText", data={
+            "chat_id": CHAT_ID, "message_id": MESSAGE_ID,
+            "text": text, "parse_mode": "Markdown"
+        })
     except Exception as e:
-        print(f"Gagal edit pesan: {e}")
+        print(f"Edit msg error: {e}")
 
-def get_file_info():
-    """Mendapatkan URL download file dari Telegram."""
-    r = requests.post(f"{TG_API_URL}/getFile", data={"file_id": FILE_ID})
-    data = r.json()
-    if not data.get("ok"):
-        raise Exception(f"Gagal getFile Telegram: {data}")
-    file_path = data["result"]["file_path"]
-    return f"https://api.telegram.org/file/bot{TOKEN}/{file_path}"
+def format_size(b):
+    mb = b / (1024*1024)
+    return f"{mb:.2f} MB" if mb < 1024 else f"{mb/1024:.2f} GB"
 
-def format_size(bytes_):
-    """Mengubah bytes ke format yang mudah dibaca (MB/GB)."""
-    mb = bytes_ / (1024 * 1024)
-    if mb >= 1024:
-        gb = mb / 1024
-        return f"{gb:.2f} GB"
-    return f"{mb:.2f} MB"
+def get_mime_type(f):
+    e = f.split('.')[-1].lower()
+    m = {"mp4":"video","mkv":"video","mp3":"audio","jpg":"image","png":"image","pdf":"doc","zip":"archive"}
+    return m.get(e, "file")
 
-def get_mime_type(filename):
-    """Menebak tipe file berdasarkan ekstensi."""
-    ext = filename.split(".")[-1].lower()
-    mime_map = {
-        "mp4": "video", "mkv": "video", "webm": "video", "mov": "video", "avi": "video",
-        "mp3": "audio", "wav": "audio", "m4a": "audio", "ogg": "audio", "flac": "audio",
-        "jpg": "image", "jpeg": "image", "png": "image", "gif": "image", "webp": "image",
-        "pdf": "document", "doc": "document", "docx": "document", "xls": "document", "xlsx": "document", "ppt": "document", "pptx": "document",
-        "zip": "archive", "rar": "archive", "7z": "archive", "tar": "archive",
-        "apk": "android", "exe": "windows", "sh": "linux",
-    }
-    return mime_map.get(ext, "file")
-
-# --- MAIN LOGIC ---
-
-def run():
-    try:
-        mime_type = get_mime_type(FILE_NAME)
-
-        # 1. Tampilkan pesan awal
+# --- DOWNLOAD PROGRESS CALLBACK ---
+async def download_callback(current, total):
+    percent = int((current / total) * 100) if total > 0 else 0
+    if percent % 10 == 0:
         edit_message(
-            f"⏳ *Menyiapkan Worker GitHub...*\n\n"
-            f"📄 Nama: `{FILE_NAME}`\n"
-            f"📁 Tipe: {mime_type}\n"
+            f"⬇️ *Downloading (Userbot)...*\n\n"
+            f"📄 `{FILE_NAME}`\n"
+            f"📊 {percent}% ({format_size(current)} / {format_size(total)})"
         )
 
-        # 2. Ambil link download
-        download_url = get_file_info()
+# --- PIXELDRAIN UPLOAD (SYNC WRAPPER) ---
+def upload_to_pixeldrain(file_path, file_name):
+    safe_name = quote(file_name)
+    pd_url = f"https://pixeldrain.com/api/file/{safe_name}"
+    file_size = os.path.getsize(file_path)
+    
+    class ProgressReader:
+        def __init__(self, fp, total):
+            self.fp = fp
+            self.total = total
+            self.read = 0
+            self.last_percent = -1
         
-        # 3. DOWNLOAD FILE DARI TELEGRAM
-        # Kita download ke /tmp karena disk runner cukup besar
+        def read(self, size=-1):
+            global CANCEL_FLAG
+            if CANCEL_FLAG: return b""
+            data = self.fp.read(size)
+            self.read += len(data)
+            if self.total > 0:
+                p = int((self.read / self.total) * 100)
+                if p != self.last_percent and p % 5 == 0:
+                    self.last_percent = p
+                    edit_message(
+                        f"⬆️ *Uploading...*\n\n"
+                        f"📄 `{file_name}`\n"
+                        f"📊 {p}% ({format_size(self.read)} / {format_size(self.total)})"
+                    )
+            return data
+
+    with open(file_path, "rb") as f:
+        reader = ProgressReader(f, file_size)
+        # Basic Auth: ("", API_KEY)
+        res = requests.put(pd_url, data=reader, auth=("", PD_KEY))
+    return res
+
+# --- MAIN ASYNC FUNCTION ---
+async def main():
+    global CANCEL_FLAG
+    
+    client = TelegramClient(StringSession(SESSION_STR), API_ID, API_HASH)
+    
+    try:
+        await client.connect()
+        if not await client.is_user_authorized():
+            raise Exception("Userbot tidak authorized! Cek SESSION_STRING.")
+
+        mime_type = get_mime_type(FILE_NAME)
+        edit_message(f"⏳ *Userbot Ready...*\n\n📄 `{FILE_NAME}`")
+
+        # 1. AMBIL PESAN YANG DIFORWARD OLEH BOT
+        # Userbot menerima pesan forward di chat pribadinya (dari Bot)
+        # Kita cari berdasarkan ID pesan yang dikirim plugin JS
+        message = await client.get_messages(USERBOT_ID, ids=FORWARDED_MSG_ID)
+        
+        if not message or not message.media:
+            raise Exception("Pesan forward tidak ditemukan atau tidak ada media.")
+
+        # 2. DOWNLOAD MENGGUNAKAN USERBOT (Telethon)
+        # Telethon otomatis handle download besar tanpa error Bot API
         temp_path = f"/tmp/{FILE_NAME}"
         
-        with requests.get(download_url, stream=True, timeout=60) as r:
-            r.raise_for_status()
-            total_size = int(r.headers.get("content-length", 0))
-            downloaded = 0
-            
-            # Untuk progress bar download
-            last_percent_dl = -1
+        # Download dengan progress callback
+        await message.download_media(file=temp_path, progress_callback=download_callback)
 
-            with open(temp_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=1024 * 64): # 64KB chunks
-                    if is_cancelled():
-                        edit_message(f"🚫 *Proses Dibatalkan* (User)\n\n📄 `{FILE_NAME}`")
-                        return
-
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        
-                        # Update progress download
-                        if total_size > 0:
-                            percent = int((downloaded / total_size) * 100)
-                        else:
-                            percent = 0
-                        
-                        # Update setiap kelipatan 10% agar tidak spam
-                        if percent != last_percent_dl and percent % 10 == 0:
-                            last_percent_dl = percent
-                            edit_message(
-                                f"⬇️ *Downloading...*\n\n"
-                                f"📄 Nama: `{FILE_NAME}`\n"
-                                f"📁 Tipe: {mime_type}\n"
-                                f"📊 {percent}% ({format_size(downloaded)} / {format_size(total_size)})"
-                            )
-
-        if is_cancelled():
-            edit_message(f"🚫 *Proses Dibatalkan* (User)\n\n📄 `{FILE_NAME}`")
+        if CANCEL_FLAG:
+            edit_message("🚫 *Dibatalkan setelah download*")
             return
 
-        # 4. UPLOAD KE PIXELDRAIN
-        edit_message(
-            f"⬆️ *Uploading ke Pixeldrain...*\n\n"
-            f"📄 Nama: `{FILE_NAME}`\n"
-            f"📁 Tipe: {mime_type}\n"
-            f"📊 Memulai upload..."
-        )
+        # 3. UPLOAD KE PIXELDRAIN
+        # Kita jalankan fungsi blocking (requests) di thread terpisah agar tidak blocking event loop telethon
+        loop = asyncio.get_event_loop()
+        res = await loop.run_in_executor(None, upload_to_pixeldrain, temp_path, FILE_NAME)
 
-        pd_url = "https://pixeldrain.com/api/file"
-        file_size = os.path.getsize(temp_path)
-        
-        # --- PERBAIKAN BUG NONLOCAL ---
-        # Variabel ini didefinisikan di scope luar (fungsi run)
-        last_percent = -1 
-
-        class ProgressReader:
-            """Wrapper untuk file stream agar bisa melaporkan progress upload."""
-            def __init__(self, fp, total, callback):
-                self.fp = fp
-                self.total = total
-                self.callback = callback
-                self.read_bytes = 0
-
-            def read(self, size=-1):
-                if is_cancelled():
-                    return b"" # Mengembalikan bytes kosong akan memutus upload
-                
-                data = self.fp.read(size)
-                self.read_bytes += len(data)
-                
-                if self.total > 0:
-                    percent = int((self.read_bytes / self.total) * 100)
-                else:
-                    percent = 0
-                
-                # Deklarasi nonlocal harus di AWAL fungsi
-                nonlocal last_percent
-                
-                if percent != last_percent and percent % 5 == 0:
-                    last_percent = percent
-                    self.callback(percent)
-                
-                return data
-
-        def upload_callback(percent):
-            """Fungsi ini dipanggil saat progress upload berubah."""
-            edit_message(
-                f"⬆️ *Uploading ke Pixeldrain...*\n\n"
-                f"📄 Nama: `{FILE_NAME}`\n"
-                f"📁 Tipe: {mime_type}\n"
-                f"📊 {percent}% ({format_size(file_size * (percent/100))} / {format_size(file_size)})"
-            )
-
-        # Mulai proses upload
-        with open(temp_path, "rb") as f:
-            reader = ProgressReader(f, file_size, upload_callback)
-            files = {"file": (FILE_NAME, reader, "application/octet-stream")}
-            headers = {"Authorization": PD_KEY}
-            
-            res = requests.post(pd_url, files=files, headers=headers)
-
-        # Cek hasil upload
-        if is_cancelled():
-             edit_message(f"🚫 *Upload Dibatalkan* (User)\n\n📄 `{FILE_NAME}`")
-             return
+        if CANCEL_FLAG:
+            edit_message("🚫 *Dibatalkan saat upload*")
+            return
 
         if res.status_code == 201:
             result = res.json()
-            pd_id = result["id"]
-            pd_link = f"https://pixeldrain.com/u/{pd_id}"
-
+            pd_link = f"https://pixeldrain.com/u/{result['id']}"
             edit_message(
-                f"✅ *Upload Selesai!*\n\n"
-                f"📄 Nama: `{FILE_NAME}`\n"
-                f"📁 Tipe: {mime_type}\n"
-                f"💾 Size: {format_size(file_size)}\n"
-                f"🔗 Link: {pd_link}"
+                f"✅ *Selesai!*\n\n"
+                f"📄 `{FILE_NAME}`\n"
+                f"🔗 {pd_link}"
             )
         else:
-            edit_message(
-                f"❌ *Gagal Upload Pixeldrain*\n\n"
-                f"Status Code: {res.status_code}\n"
-                f"Response: `{res.text[:500]}`"
-            )
+            edit_message(f"❌ Gagal Upload PD: {res.status_code}")
 
     except Exception as e:
-        edit_message(
-            f"❌ *Terjadi kesalahan sistem*\n\n"
-            f"`{str(e)}`"
-        )
+        edit_message(f"❌ Error:\n`{str(e)}`")
+    finally:
+        await client.disconnect()
 
 if __name__ == "__main__":
-    run()
+    asyncio.run(main())
