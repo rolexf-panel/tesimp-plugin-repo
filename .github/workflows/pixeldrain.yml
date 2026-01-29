@@ -22,7 +22,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install telethon requests
+        run: pip install telethon requests aiohttp
 
       - name: Run Pixeldrain Worker
         env:
