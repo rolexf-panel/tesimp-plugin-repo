@@ -1,0 +1,106 @@
+name: Pixeldrain Upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      chat_id:
+        description: 'Telegram Chat ID'
+        required: true
+      user_id:
+        description: 'Telegram User ID'
+        required: true
+      message_id:
+        description: 'Telegram Message ID for updates'
+        required: true
+      file_id:
+        description: 'Telegram File ID'
+        required: true
+      file_name:
+        description: 'File Name'
+        required: true
+      file_size:
+        description: 'File Size in bytes'
+        required: true
+      file_type:
+        description: 'File Type'
+        required: true
+      mime_type:
+        description: 'MIME Type'
+        required: true
+      bot_token:
+        description: 'Telegram Bot Token'
+        required: true
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyrogram tgcrypto requests aiohttp aiofiles tqdm
+
+      - name: Create Config
+        env:
+          API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          SESSION_STRING: ${{ secrets.TELEGRAM_SESSION }}
+          BOT_TOKEN: ${{ github.event.inputs.bot_token }}
+        run: |
+          cat > config.json << EOF
+          {
+            "api_id": "${API_ID}",
+            "api_hash": "${API_HASH}",
+            "session_string": "${SESSION_STRING}",
+            "bot_token": "${BOT_TOKEN}",
+            "chat_id": "${{ github.event.inputs.chat_id }}",
+            "user_id": "${{ github.event.inputs.user_id }}",
+            "message_id": "${{ github.event.inputs.message_id }}",
+            "file_id": "${{ github.event.inputs.file_id }}",
+            "file_name": "${{ github.event.inputs.file_name }}",
+            "file_size": "${{ github.event.inputs.file_size }}",
+            "file_type": "${{ github.event.inputs.file_type }}",
+            "mime_type": "${{ github.event.inputs.mime_type }}"
+          }
+          EOF
+
+      - name: Download and Upload
+        id: upload
+        run: |
+          python3 .github/scripts/pixeldrain_uploader.py
+        continue-on-error: true
+
+      - name: Save Result
+        if: always()
+        run: |
+          # Result will be saved by Python script
+          echo "Upload process completed"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f config.json
+          rm -f *.session
+          rm -rf downloads/
+          rm -rf __pycache__/
+
+      - name: Upload Logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: upload-logs
+          path: |
+            upload.log
+            error.log
+          retention-days: 1
