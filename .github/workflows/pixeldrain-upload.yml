@@ -38,12 +38,12 @@ jobs:
     
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
           cache: 'pip'
 
       - name: Install Dependencies
@@ -86,6 +86,14 @@ jobs:
         run: |
           # Result will be saved by Python script
           echo "Upload process completed"
+          
+          # Check if result file exists
+          if [ -f "upload_result.json" ]; then
+            echo "Result file found"
+            cat upload_result.json
+          else
+            echo "No result file found"
+          fi
 
       - name: Cleanup
         if: always()
@@ -97,10 +105,11 @@ jobs:
 
       - name: Upload Logs (on failure)
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: upload-logs
+          name: upload-logs-${{ github.run_id }}
           path: |
             upload.log
             error.log
           retention-days: 1
+          if-no-files-found: warn
