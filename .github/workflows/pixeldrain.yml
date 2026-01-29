@@ -1,0 +1,35 @@
+name: Pixeldrain Uploader
+
+on:
+  repository_dispatch:
+    types: [start-upload]
+
+permissions:
+  contents: write
+
+jobs:
+  upload-task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Pixeldrain Worker
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          PD_API_KEY: ${{ secrets.PIXELDRAIN_API_KEY }}
+          FILE_ID: ${{ github.event.client_payload.file_id }}
+          FILE_NAME: ${{ github.event.client_payload.file_name }}
+          CHAT_ID: ${{ github.event.client_payload.chat_id }}
+          MESSAGE_ID: ${{ github.event.client_payload.message_id }}
+        run: python scripts/pixeldrain_worker.py
