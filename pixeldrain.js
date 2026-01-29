@@ -2,8 +2,18 @@ const axios = require('axios');
 const fs = require('fs-extra');
 const path = require('path');
 
+// --- KONFIGURASI ---
+const GH_OWNER = process.env.GH_OWNER || 'rolexf-panel';
+const GH_REPO = process.env.GH_REPO || 'TeSimp-Telegram-Bot';
+const GH_TOKEN = process.env.GH_PAT; // PAT dari GitHub
+
+// PENTING: Masukkan ID Numerik Akun Userbot kamu di file .env
+// Contoh: USERBOT_ID=123456789
+const USERBOT_ID = parseInt(process.env.USERBOT_ID);
+
 const dbPath = path.join(__dirname, '../database/pixeldrain.json');
 
+// --- DATABASE HELPER ---
 const readDB = () => {
     if (!fs.existsSync(dbPath)) fs.writeJsonSync(dbPath, []);
     return fs.readJsonSync(dbPath);
@@ -11,22 +21,20 @@ const readDB = () => {
 
 const writeDB = (data) => fs.writeJsonSync(dbPath, data, { spaces: 2 });
 
-// Konfigurasi GitHub
-const GH_OWNER = process.env.GH_OWNER || 'rolexf-panel';
-const GH_REPO = process.env.GH_REPO || 'TeSimp-Telegram-Bot';
-const GH_TOKEN = process.env.GH_PAT || ''; // isi dari .env
+// --- TRACKER JOB (Untuk Cancel) ---
+// Format: { "CHATID_MESSAGEID": "GITHUB_RUN_ID" }
+const jobTracker = {};
 
-// Tracking run_id untuk cancel (di memori)
-const jobTracker = {}; // { "chatId_messageId": runId }
+// --- GITHUB ACTIONS HELPERS ---
 
-async function triggerWorkflow(fileId, fileName, chatId, messageId) {
+async function triggerWorkflow(forwardedMsgId, fileName, chatId, messageId) {
     try {
         await axios.post(
             `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/dispatches`,
             {
                 event_type: 'start-upload',
                 client_payload: {
-                    file_id: fileId,
+                    forwarded_msg_id: forwardedMsgId, // ID pesan di chat Userbot
                     file_name: fileName,
                     chat_id: String(chatId),
                     message_id: String(messageId),
@@ -41,7 +49,7 @@ async function triggerWorkflow(fileId, fileName, chatId, messageId) {
         );
         return true;
     } catch (error) {
-        console.error('Gagal trigger workflow:', error.response?.data || error.message);
+        console.error('[Pixeldrain] Gagal trigger workflow:', error.response?.data || error.message);
         return false;
     }
 }
@@ -60,7 +68,7 @@ async function getLatestRunId() {
             return res.data.workflow_runs[0].id;
         }
     } catch (e) {
-        console.error('Gagal ambil run ID:', e.response?.data || e.message);
+        console.error('[Pixeldrain] Gagal ambil run ID:', e.response?.data || e.message);
     }
     return null;
 }
@@ -80,44 +88,25 @@ async function cancelWorkflow(runId) {
         );
         return true;
     } catch (error) {
-        console.error('Gagal cancel:', error.response?.data || error.message);
+        console.error('[Pixeldrain] Gagal cancel:', error.response?.data || error.message);
         return false;
     }
 }
 
-function getFileExtension(filename) {
-    return filename.split('.').pop().toLowerCase();
-}
-
-function getFileType(filename) {
-    const ext = getFileExtension(filename);
-    if (['mp4', 'mkv', 'webm', 'mov'].includes(ext)) return 'video';
-    if (['mp3', 'wav', 'm4a', 'ogg'].includes(ext)) return 'audio';
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
-    return 'file';
-}
-
-function formatSize(bytes) {
-    const mb = bytes / (1024 * 1024);
-    if (mb >= 1024) {
-        const gb = mb / 1024;
-        return `${gb.toFixed(2)} GB`;
-    }
-    return `${mb.toFixed(2)} MB`;
-}
+// --- MAIN PLUGIN ---
 
 module.exports = {
     name: 'pixeldrain',
-    version: '2.0.0',
-    description: 'Upload file besar ke Pixeldrain via GitHub Actions',
-    author: 'You',
+    version: '3.0.0',
+    description: 'Upload file via Userbot & GitHub Actions',
+    author: 'TeSimp',
     commands: ['pixeldrain', 'pd', 'pdlist'],
 
     async execute(bot, msg, args, botInstance) {
         const chatId = msg.chat.id;
         const userId = String(msg.from.id);
 
-        // /pdlist
+        // 1. Fitur /pdlist (Riwayat)
         if (msg.text && msg.text.includes('pdlist')) {
             const db = readDB();
             const userFiles = db.filter((f) => f.userId === userId);
@@ -136,7 +125,7 @@ module.exports = {
             });
         }
 
-        // Deteksi file
+        // 2. Deteksi File
         const targetMsg = msg.reply_to_message || msg;
         const fileObj =
             targetMsg.document ||
@@ -152,16 +141,19 @@ module.exports = {
             );
         }
 
-        const fileId = fileObj.file_id;
-        const fileName =
-            fileObj.file_name || `upload_${Date.now()}.${getFileExtension('bin')}`;
+        const fileName = fileObj.file_name || `upload_${Date.now()}.bin`;
 
-        // Pesan awal dengan tombol cancel
+        // Cek apakah USERBOT_ID sudah diset
+        if (!USERBOT_ID) {
+            return bot.sendMessage(chatId, '❌ *Konfigurasi Error!* \n\n`USERBOT_ID` belum diset di environment (.env). Bot tidak bisa melakukan forward ke Userbot.');
+        }
+
+        // 3. Kirim Pesan Loading Awal
         const sentMsg = await bot.sendMessage(
             chatId,
-            `⏳ *Menyiapkan Worker GitHub...*\n\n` +
+            `⏳ *Menyiapkan Worker...*\n\n` +
                 `📄 Nama: \`${fileName}\`\n` +
-                `🔄 Status: Menunggu antrian GitHub Actions`,
+                `🔄 Memforward ke Userbot...`,
             {
                 parse_mode: 'Markdown',
                 reply_markup: {
@@ -179,39 +171,74 @@ module.exports = {
 
         const messageId = sentMsg.message_id;
 
-        // Perbaiki callback_data dengan message_id yang benar
-        await bot.editMessageReplyMarkup(
-            {
-                inline_keyboard: [
-                    [
-                        {
-                            text: '❌ Batalkan',
-                            callback_data: `pd_cancel_${chatId}_${messageId}`,
-                        },
-                    ],
-                ],
-            },
-            { chat_id: chatId, message_id: messageId }
-        );
+        // 4. Forward File ke Userbot
+        // Langkah ini WAJIB agar Userbot (GitHub Actions) bisa melihat filenya
+        try {
+            // Forward pesan asli ke Userbot
+            const forwardRes = await bot.forwardMessage(USERBOT_ID, chatId, targetMsg.message_id);
+            
+            // ID pesan yang baru saja masuk ke Userbot (Saved Messages / Private Chat)
+            const forwardedMsgId = forwardRes.message_id;
 
-        // Trigger workflow
-        const ok = await triggerWorkflow(fileId, fileName, chatId, messageId);
-        if (!ok) {
-            return bot.editMessageText(
+            console.log(`[Pixeldrain] File diforward. Msg ID di Userbot: ${forwardedMsgId}`);
+
+            // Update pesan loading
+            await bot.editMessageText(
+                `⏳ *Menghubungi GitHub Actions...*\n\n` +
+                    `📄 Nama: \`${fileName}\`\n` +
+                    `🔄 Status: Queueing...`,
+                {
+                    chat_id: chatId,
+                    message_id: messageId,
+                    parse_mode: 'Markdown',
+                }
+            );
+
+            // 5. Trigger GitHub Actions
+            const ok = await triggerWorkflow(forwardedMsgId, fileName, chatId, messageId);
+
+            if (!ok) {
+                return bot.editMessageText(
+                    chatId,
+                    messageId,
+                    '❌ Gagal memicu GitHub Actions. Cek log server / konfigurasi GH_PAT.'
+                );
+            }
+
+            // Update tombol Cancel dengan data yang benar
+            await bot.editMessageReplyMarkup(
+                {
+                    inline_keyboard: [
+                        [
+                            {
+                                text: '❌ Batalkan',
+                                callback_data: `pd_cancel_${chatId}_${messageId}`,
+                            },
+                        ],
+                    ],
+                },
+                { chat_id: chatId, message_id: messageId }
+            );
+
+            // 6. Ambil Run ID untuk fitur Cancel
+            // Delay dikit karena GitHub butuh waktu memproses dispatch event
+            setTimeout(async () => {
+                const runId = await getLatestRunId();
+                if (runId) {
+                    jobTracker[`${chatId}_${messageId}`] = runId;
+                    console.log(`[Pixeldrain] Tracking Job: ${chatId}_${messageId} -> Run ${runId}`);
+                }
+            }, 4000);
+
+        } catch (err) {
+            console.error('[Pixeldrain] Error forwarding:', err);
+            await bot.editMessageText(
                 chatId,
                 messageId,
-                '❌ Gagal memicu GitHub Actions. Cek log server / konfigurasi GH_PAT.'
+                `❌ *Gagal Forward ke Userbot*\n\nPastikan bot dan userbot saling mengikuti (start) atau Userbot tidak memblokir bot.\n\nError: \`${err.message}\``,
+                { parse_mode: 'Markdown' }
             );
         }
-
-        // Tunggu sebentar lalu ambil run_id agar bisa di-cancel
-        setTimeout(async () => {
-            const runId = await getLatestRunId();
-            if (runId) {
-                jobTracker[`${chatId}_${messageId}`] = runId;
-                console.log(`[pixeldrain] track job ${chatId}_${messageId} -> run ${runId}`);
-            }
-        }, 3000);
     },
 
     async handleCallback(bot, query, botInstance) {
@@ -222,10 +249,11 @@ module.exports = {
 
         if (!data.startsWith('pd_cancel_')) return;
 
-        // format: pd_cancel_CHATID_MESSAGEID atau pd_cancel_wait_CHATID
+        // Format: pd_cancel_CHATID_MESSAGEID
         const parts = data.split('_');
+        
+        // Handle case 'wait' (user klik terlalu cepat sebelum ID diset)
         if (parts[2] === 'wait') {
-            // user klik cancel sebelum messageId fix
             return bot.answerCallbackQuery(query.id, {
                 text: '⏳ Tunggu sebentar, job sedang disiapkan...',
                 show_alert: false,
@@ -239,32 +267,37 @@ module.exports = {
 
         if (!runId) {
             return bot.answerCallbackQuery(query.id, {
-                text: '⚠️ Job tidak ditemukan / sudah selesai.',
+                text: '⚠️ Job tidak ditemukan / mungkin sudah selesai.',
                 show_alert: false,
             });
         }
 
+        // Jawab callback
         await bot.answerCallbackQuery(query.id, {
             text: '🚫 Mencoba membatalkan...',
             show_alert: false,
         });
 
+        // Coba cancel di GitHub
         const cancelled = await cancelWorkflow(runId);
+
         if (cancelled) {
             await bot.editMessageText(
                 `🚫 *Proses Dibatalkan*\n\n` +
                     `📄 Pesan ID: ${targetMsgId}\n` +
-                    `GitHub Actions run: ${runId}`,
+                    `GitHub Actions Run: ${runId}\n` +
+                    `Userbot berhenti mendownload/uploading.`,
                 {
                     chat_id: chatId,
                     message_id: messageId,
                     parse_mode: 'Markdown',
                 }
             );
+            // Hapus dari memori
             delete jobTracker[key];
         } else {
             await bot.answerCallbackQuery(query.id, {
-                text: '⚠️ Gagal membatalkan job.',
+                text: '⚠️ Gagal membatalkan job (mungkin sudah selesai).',
                 show_alert: true,
             });
         }
