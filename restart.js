@@ -1,30 +1,51 @@
+const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-setTimeout(() => {
-  const pendingFile = path.join(process.cwd(), '.restart_pending.json');
-  
-  if (fs.existsSync(pendingFile)) {
-    try {
-      const pending = JSON.parse(fs.readFileSync(pendingFile, 'utf8'));
-      
-      // Optional: hanya edit jika restart baru-baru ini (max 10 menit)
-      if (Date.now() - pending.timestamp < 600000) {
-        bot.editMessageText('♻️ *Bot restarted successfully!*\n\nThe bot is now back online and ready. 🚀', {
-          chat_id: pending.chat_id,
-          message_id: pending.message_id,
-          parse_mode: 'Markdown'
-        }).catch(err => {
-          console.error('Failed to edit restart message (might be deleted):', err.message);
-          // Fallback: kirim pesan baru jika edit gagal
-          bot.sendMessage(pending.chat_id, '♻️ Bot is now back online! 🚀');
-        });
-      }
-      
-      fs.unlinkSync(pendingFile);
-    } catch (err) {
-      console.error('Error handling restart pending file:', err);
-      if (fs.existsSync(pendingFile)) fs.unlinkSync(pendingFile);
+module.exports = {
+  name: 'restart',
+  version: '1.1.0',
+  description: 'Restart the bot process using PM2 and notify when back online (owner only)',
+  commands: ['restart', 'reboot'],
+  async execute(bot, msg, args, botInstance) {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const ownerId = process.env.OWNER_ID;
+
+    if (!ownerId) {
+      return bot.sendMessage(chatId, '❌ OWNER_ID is not configured in environment variables.', { parse_mode: 'Markdown' });
     }
+
+    if (String(userId) !== String(String(ownerId))) {
+      return bot.sendMessage(chatId, '❌ This command is restricted to the bot owner only.', { parse_mode: 'Markdown' });
+    }
+
+    // Kirim pesan "restarting" dan simpan detailnya
+    const restartMsg = await bot.sendMessage(
+      chatId,
+      '♻️ *Restarting the bot...*\n\nPlease wait, the bot will be back online shortly.',
+      { parse_mode: 'Markdown' }
+    );
+
+    const pendingFile = path.join(process.cwd(), '.restart_pending.json');
+    const pending = {
+      chat_id: chatId,
+      message_id: restartMsg.message_id,
+      timestamp: Date.now()
+    };
+
+    try {
+      fs.writeFileSync(pendingFile, JSON.stringify(pending));
+    } catch (err) {
+      console.error('Failed to save restart pending file:', err);
+    }
+
+    // Trigger PM2 restart
+    exec('pm2 restart tesimp-bot', (error, stdout, stderr) => {
+      if (error || stderr) {
+        console.error('PM2 restart failed:', error || stderr);
+        process.exit(1); // Fallback
+      }
+    });
   }
-}, 3000); // Delay 3 detik agar bot benar-benar ready
+};
