@@ -268,9 +268,11 @@ async def send_error_message(bot_token, chat_id, message_id, file_name, error_ms
         print(f"Error sending error message: {e}")
 
 
-async def download_file(client, file_id, file_name, progress_tracker):
-    """Download file from Telegram using userbot"""
-    print(f"Starting download: {file_name}")
+async def download_file(client, source_chat_id, source_message_id, file_name, progress_tracker):
+    """Download file from Telegram using userbot with fresh file reference"""
+    print(f"Getting fresh file reference for: {file_name}")
+    print(f"From chat: {source_chat_id}, message: {source_message_id}")
+    
     progress_tracker.phase = "downloading"
     await progress_tracker.update_telegram(force=True)
 
@@ -278,6 +280,36 @@ async def download_file(client, file_id, file_name, progress_tracker):
     download_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
+        # Get message to obtain fresh file reference
+        print("Fetching message to get fresh file reference...")
+        message = await client.get_messages(int(source_chat_id), int(source_message_id))
+        
+        if not message:
+            raise Exception(f"Message {source_message_id} not found in chat {source_chat_id}")
+        
+        # Extract file from message
+        file_to_download = None
+        
+        if message.document:
+            file_to_download = message.document
+            print(f"Found document: {message.document.file_name}")
+        elif message.video:
+            file_to_download = message.video
+            print(f"Found video")
+        elif message.audio:
+            file_to_download = message.audio
+            print(f"Found audio")
+        elif message.photo:
+            file_to_download = message.photo
+            print(f"Found photo")
+        else:
+            raise Exception("No downloadable file found in message")
+        
+        if not file_to_download:
+            raise Exception("Could not extract file from message")
+        
+        print(f"Starting download with fresh file reference...")
+        
         async def progress_callback(current, total):
             progress_tracker.downloaded = current
             await progress_tracker.update_telegram()
@@ -286,20 +318,31 @@ async def download_file(client, file_id, file_name, progress_tracker):
             if await progress_tracker.check_cancelled():
                 raise Exception("Upload cancelled by user")
 
-        # Download file with progress
+        # Download file with fresh reference
         file_path = await client.download_media(
-            file_id,
+            message,  # Download from message directly (has fresh reference)
             file_name=str(download_path),
             progress=progress_callback
         )
 
         print(f"Download completed: {file_path}")
+        
+        # Verify file was actually downloaded
+        if not file_path or not Path(file_path).exists():
+            raise Exception("Download completed but file not found")
+        
+        file_size = Path(file_path).stat().st_size
+        print(f"Downloaded file size: {file_size} bytes")
+        
+        if file_size == 0:
+            raise Exception("Downloaded file is empty (0 bytes)")
+        
         return file_path
 
     except FloodWait as e:
         print(f"FloodWait: Waiting {e.value} seconds")
         await asyncio.sleep(e.value)
-        return await download_file(client, file_id, file_name, progress_tracker)
+        return await download_file(client, source_chat_id, source_message_id, file_name, progress_tracker)
     except Exception as e:
         print(f"Download error: {e}")
         raise
@@ -395,7 +438,9 @@ async def main():
     bot_token = config['bot_token']
     chat_id = int(config['chat_id'])
     message_id = int(config['message_id'])
-    file_id = config['file_id']
+    file_id = config.get('file_id')  # Optional, for backward compatibility
+    source_message_id = config['source_message_id']
+    source_chat_id = config['source_chat_id']
     file_name = config['file_name']
     file_size = int(config['file_size'])
     pixeldrain_api_key = config.get('pixeldrain_api_key')  # Optional
@@ -403,6 +448,8 @@ async def main():
     print(f"File: {file_name}")
     print(f"Size: {file_size / (1024*1024):.2f} MB")
     print(f"Chat ID: {chat_id}")
+    print(f"Source Message ID: {source_message_id}")
+    print(f"Source Chat ID: {source_chat_id}")
     if pixeldrain_api_key:
         print(f"Pixeldrain API: Authenticated")
     else:
@@ -438,8 +485,14 @@ async def main():
         async with app:
             print("Client connected!")
             
-            # Download file
-            file_path = await download_file(app, file_id, file_name, progress)
+            # Download file using fresh file reference from message
+            file_path = await download_file(
+                app, 
+                source_chat_id, 
+                source_message_id, 
+                file_name, 
+                progress
+            )
             
             if not file_path or not os.path.exists(file_path):
                 raise Exception("Download failed - file not found")
