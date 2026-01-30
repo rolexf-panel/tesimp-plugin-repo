@@ -56,6 +56,7 @@ jobs:
           API_ID: ${{ secrets.TELEGRAM_API_ID }}
           API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           SESSION_STRING: ${{ secrets.TELEGRAM_SESSION }}
+          PIXELDRAIN_API_KEY: ${{ secrets.PIXELDRAIN_API_KEY }}
           BOT_TOKEN: ${{ github.event.inputs.bot_token }}
         run: |
           cat > config.json << EOF
@@ -63,6 +64,7 @@ jobs:
             "api_id": "${API_ID}",
             "api_hash": "${API_HASH}",
             "session_string": "${SESSION_STRING}",
+            "pixeldrain_api_key": "${PIXELDRAIN_API_KEY}",
             "bot_token": "${BOT_TOKEN}",
             "chat_id": "${{ github.event.inputs.chat_id }}",
             "user_id": "${{ github.event.inputs.user_id }}",
