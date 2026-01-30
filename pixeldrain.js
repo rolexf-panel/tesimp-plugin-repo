@@ -238,8 +238,10 @@ module.exports = {
                 upload.workflowRunId = workflowResult.runId;
             }
 
-            // Start monitoring workflow
-            this.monitorWorkflow(bot, chatId, userId, uploadId, workflowResult.runId);
+            // Workflow started successfully
+            // Python script will handle progress updates and final result
+            console.log(`Workflow triggered successfully for upload ${uploadId}`);
+            console.log(`GitHub Actions will handle the upload and update Telegram directly`);
 
         } catch (error) {
             console.error('Upload start error:', error);
@@ -327,25 +329,26 @@ module.exports = {
     },
 
     async monitorWorkflow(bot, chatId, userId, uploadId, runId) {
+        // Simplified monitoring - just for cleanup
+        // Python script handles all Telegram updates directly
         const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
         const GITHUB_REPO = process.env.GITHUB_REPO;
         
         if (!GITHUB_TOKEN || !GITHUB_REPO || !runId) return;
 
         const [owner, repo] = GITHUB_REPO.split('/');
-        let lastProgress = 0;
         
         const checkInterval = setInterval(async () => {
             try {
                 const upload = this.activeUploads.get(uploadId);
                 
-                // Check if cancelled
+                // Check if cancelled or removed
                 if (!upload || upload.cancelled) {
                     clearInterval(checkInterval);
                     return;
                 }
 
-                // Get workflow status
+                // Get workflow status for cleanup only
                 const response = await axios.get(
                     `https://api.github.com/repos/${owner}/${repo}/actions/runs/${runId}`,
                     {
@@ -358,101 +361,33 @@ module.exports = {
 
                 const run = response.data;
                 
-                // Check for completion
+                // Check for completion - just cleanup
                 if (run.status === 'completed') {
                     clearInterval(checkInterval);
                     
-                    if (run.conclusion === 'success') {
-                        await this.handleUploadSuccess(bot, chatId, userId, uploadId);
-                    } else {
-                        await this.handleUploadFailure(bot, chatId, userId, uploadId, run.conclusion);
-                    }
-                    
+                    // Clean up upload state
+                    // Python script already sent the result to Telegram
                     this.activeUploads.delete(uploadId);
+                    
+                    console.log(`Workflow ${runId} completed. Upload ${uploadId} cleaned up.`);
                 }
 
             } catch (error) {
                 console.error('Monitor workflow error:', error.message);
             }
-        }, 5000); // Check every 5 seconds
+        }, 10000); // Check every 10 seconds (less frequent since we don't handle results)
     },
 
     async handleUploadSuccess(bot, chatId, userId, uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload) return;
-
-        // Get result from queue file
-        const queue = readQueue();
-        const result = queue[uploadId];
-        
-        if (!result || !result.fileId) {
-            await bot.editMessageText(
-                '⚠️ *Upload Completed*\n\n' +
-                'But failed to retrieve file link.\n' +
-                'Please check manually.',
-                {
-                    chat_id: chatId,
-                    message_id: upload.messageId,
-                    parse_mode: 'Markdown'
-                }
-            );
-            return;
-        }
-
-        const pdLink = `https://pixeldrain.com/u/${result.fileId}`;
-        const duration = ((Date.now() - upload.startTime) / 1000).toFixed(1);
-
-        // Save to history
-        const db = readDB();
-        db.push({
-            userId: userId,
-            fileId: result.fileId,
-            fileName: upload.fileName,
-            fileSize: upload.fileSize,
-            fileType: upload.fileType,
-            date: new Date().toLocaleString('id-ID')
-        });
-        writeDB(db);
-
-        // Clean up queue
-        delete queue[uploadId];
-        writeQueue(queue);
-
-        await bot.editMessageText(
-            '✅ *Upload Berhasil!*\n━━━━━━━━━━━━━━━━━━━━\n\n' +
-            `📄 *File:* ${upload.fileName}\n` +
-            `📦 *Size:* ${this.formatFileSize(upload.fileSize)}\n` +
-            `⏱️ *Duration:* ${duration}s\n\n` +
-            `🔗 *Link:*\n${pdLink}\n\n` +
-            `💡 Use /pdlist to see all uploads`,
-            {
-                chat_id: chatId,
-                message_id: upload.messageId,
-                parse_mode: 'Markdown',
-                disable_web_page_preview: false
-            }
-        );
+        // This is now handled by Python script directly
+        // Just clean up
+        this.activeUploads.delete(uploadId);
     },
 
     async handleUploadFailure(bot, chatId, userId, uploadId, conclusion) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload) return;
-
-        await bot.editMessageText(
-            '❌ *Upload Gagal*\n━━━━━━━━━━━━━━━━━━━━\n\n' +
-            `📄 *File:* ${upload.fileName}\n` +
-            `❗ *Reason:* ${conclusion}\n\n` +
-            'Possible causes:\n' +
-            '• File too large\n' +
-            '• Network timeout\n' +
-            '• Pixeldrain service down\n\n' +
-            'Please try again later.',
-            {
-                chat_id: chatId,
-                message_id: upload.messageId,
-                parse_mode: 'Markdown'
-            }
-        );
+        // This is now handled by Python script directly
+        // Just clean up
+        this.activeUploads.delete(uploadId);
     },
 
     async cancelGitHubWorkflow(runId) {
