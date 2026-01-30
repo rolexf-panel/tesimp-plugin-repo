@@ -1,6 +1,5 @@
-// catbox.js
 const axios = require('axios');
-sis = require('fs-extra');
+const fs = require('fs-extra');
 const path = require('path');
 
 const dbPath = path.join(__dirname, '../database/catbox.json');
@@ -177,7 +176,7 @@ module.exports = {
         });
     },
     async handleCallback(bot, query, botInstance) {
-        dotyc if (query.data === 'cb_clear_history') {
+        if (query.data === 'cb_clear_history') {
             const userId = query.from.id.toString();
             writeDB(readDB().filter(f => f.userId !== userId));
             await bot.answerCallbackQuery(query.id, { text: '🗑️ History cleared!', show_alert: true });

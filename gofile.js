@@ -36,7 +36,7 @@ module.exports = {
 
         let list = `*Gofile Upload History*\n━━━━━━━━━━━━━━━━━━━━\n\nTotal: ${userFiles.length} files\n\n`;
         userFiles.slice(-15).reverse().forEach((f, i) => {
-            list += `${i + 1}. *${f.fileName}*\n Size: ${f.fileSize ? botInstance.formatFileSize(f.fileSize) : 'Unknown'} | ${f.date}\n [Download](https://gofile.io/d/${f.code})\n\n`;
+            list += `${i + 1}. *${f.fileName}*\n Size: ${botInstance.formatFileSize ? botInstance.formatFileSize(f.fileSize || 0) : 'Unknown'} | ${f.date}\n [Download](https://gofile.io/d/${f.code})\n\n`;
         });
 
         const keyboard = [[{ text: '🗑️ Clear History', callback_data: 'gf_clear_history' }]];
@@ -50,10 +50,13 @@ module.exports = {
         upload.cancelled = true;
 
         try {
-            await bot.editMessageText('🚫 *Upload Cancelled*\n\nFile: ${upload.fileName}\nStatus: Cancelled by user', {
-                chat_id: chatId, message_id: upload.messageId, parse_mode: 'Markdown'
+            await bot.editMessageText(`🚫 *Upload Cancelled*\n\nFile: ${upload.fileName}\nStatus: Cancelled by user`, {
+                chat_id: chatId,
+                message_id: upload.messageId,
+                parse_mode: 'Markdown'
             });
         } catch (e) {}
+
         if (upload.workflowRunId && process.env.GITHUB_TOKEN) {
             try { await this.cancelGitHubWorkflow(upload.workflowRunId); } catch (e) {}
         }
@@ -88,12 +91,13 @@ module.exports = {
     getExtension(fileObj) {
         return fileObj.mime_type ? fileObj.mime_type.split('/')[1] || 'bin' : 'bin';
     },
-    async startUpload(bot, msg, chatId, userId, file, b
-otInstance) {
+    async startUpload(bot, msg, chatId, userId, file, botInstance) {
         const uploadId = `${userId}_${chatId}`;
         const sourceMsg = msg.reply_to_message || msg;
 
-        const initialMsg = await bot.sendMessage(chatId, '🚀 *Preparing Gofile Upload*\n\n📄 *File:* ${file.fileName}\n📦 *Size:* ${botInstance.formatFileSize ? botInstance.formatFileSize(file.fileSize) : 'Unknown'}\n\n⏳ Initializing...', { parse_mode: 'Markdown' });
+        const sizeText = botInstance.formatFileSize ? botInstance.formatFileSize(file.fileSize) : 'Unknown';
+
+        const initialMsg = await bot.sendMessage(chatId, `🚀 *Preparing Gofile Upload*\n\n📄 *File:* ${file.fileName}\n📦 *Size:* ${sizeText}\n\n⏳ Initializing...`, { parse_mode: 'Markdown' });
 
         this.activeUploads.set(uploadId, {
             messageId: initialMsg.message_id,
@@ -121,7 +125,11 @@ otInstance) {
             if (upload) upload.workflowRunId = result.runId;
         } catch (error) {
             this.activeUploads.delete(uploadId);
-            await bot.editMessageText('❌ *Upload Failed to Start*\n\nError: ${error.message}', { chat_id: chatId, message_id: initialMsg.message_id, parse_mode: 'Markdown' });
+            await bot.editMessageText(`❌ *Upload Failed to Start*\n\nError: ${error.message}`, {
+                chat_id: chatId,
+                message_id: initialMsg.message_id,
+                parse_mode: 'Markdown'
+            });
         }
     },
     async triggerGitHubWorkflow(data, workflowFile) {
@@ -162,7 +170,7 @@ otInstance) {
         if (query.data === 'gf_clear_history') {
             const userId = query.from.id.toString();
             writeDB(readDB().filter(f => f.userId !== userId));
-            await bot.answerCallbackQuery(query.id, { text: '🗑️ History cleared!', show_alert: true });
+            await bot.answerCallbackQuery(query, { text: '🗑️ History cleared!', show_alert: true });
             await bot.editMessageText('✅ *History Cleared*\n\nAll your Gofile history has been deleted.', {
                 chat_id: query.message.chat.id,
                 message_id: query.message.message_id,
