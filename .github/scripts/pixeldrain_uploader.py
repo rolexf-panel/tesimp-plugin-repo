@@ -147,6 +147,127 @@ class ProgressTracker:
         return False
 
 
+async def send_success_message(bot_token, chat_id, message_id, file_name, file_size, pixeldrain_id, elapsed):
+    """Send success message directly to Telegram"""
+    try:
+        def format_size(bytes_size):
+            if bytes_size < 1024:
+                return f"{bytes_size} B"
+            elif bytes_size < 1024 * 1024:
+                return f"{bytes_size / 1024:.1f} KB"
+            elif bytes_size < 1024 * 1024 * 1024:
+                return f"{bytes_size / (1024 * 1024):.1f} MB"
+            else:
+                return f"{bytes_size / (1024 * 1024 * 1024):.2f} GB"
+        
+        pd_link = f"https://pixeldrain.com/u/{pixeldrain_id}"
+        duration = f"{elapsed:.1f}s" if elapsed < 60 else f"{int(elapsed/60)}m {int(elapsed%60)}s"
+        
+        message = f"✅ *Upload Berhasil!*\n"
+        message += "━━━━━━━━━━━━━━━━━━━━\n\n"
+        message += f"📄 *File:* {file_name}\n"
+        message += f"📦 *Size:* {format_size(file_size)}\n"
+        message += f"⏱️ *Duration:* {duration}\n\n"
+        message += f"🔗 *Link:*\n{pd_link}\n\n"
+        message += f"💡 Use /pdlist to see all uploads"
+        
+        url = f"https://api.telegram.org/bot{bot_token}/editMessageText"
+        data = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "text": message,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": False
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data) as response:
+                if response.status == 200:
+                    print("Success message sent to Telegram!")
+                    
+                    # Save to history database
+                    await save_to_history(chat_id, pixeldrain_id, file_name, file_size)
+                    
+                    return True
+                else:
+                    error = await response.text()
+                    print(f"Failed to send success message: {error}")
+                    return False
+                    
+    except Exception as e:
+        print(f"Error sending success message: {e}")
+        return False
+
+
+async def save_to_history(user_id, file_id, file_name, file_size):
+    """Save upload to history database"""
+    try:
+        import json
+        from datetime import datetime
+        
+        db_path = Path("../database/pixeldrain.json")
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Load existing history
+        if db_path.exists():
+            with open(db_path, 'r') as f:
+                history = json.load(f)
+        else:
+            history = []
+        
+        # Add new entry
+        history.append({
+            "userId": str(user_id),
+            "fileId": file_id,
+            "fileName": file_name,
+            "fileSize": file_size,
+            "date": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        })
+        
+        # Save history
+        with open(db_path, 'w') as f:
+            json.dump(history, f, indent=2)
+        
+        print(f"Saved to history: {file_name}")
+        
+    except Exception as e:
+        print(f"Failed to save history: {e}")
+
+
+async def send_error_message(bot_token, chat_id, message_id, file_name, error_msg):
+    """Send error message directly to Telegram"""
+    try:
+        message = f"❌ *Upload Gagal*\n"
+        message += "━━━━━━━━━━━━━━━━━━━━\n\n"
+        message += f"📄 *File:* {file_name}\n"
+        message += f"❗ *Error:* {error_msg}\n\n"
+        message += "Possible causes:\n"
+        message += "• File too large\n"
+        message += "• Network timeout\n"
+        message += "• Pixeldrain service down\n"
+        message += "• Invalid API key\n\n"
+        message += "Please try again later."
+        
+        url = f"https://api.telegram.org/bot{bot_token}/editMessageText"
+        data = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "text": message,
+            "parse_mode": "Markdown"
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data) as response:
+                if response.status == 200:
+                    print("Error message sent to Telegram!")
+                else:
+                    error = await response.text()
+                    print(f"Failed to send error message: {error}")
+                    
+    except Exception as e:
+        print(f"Error sending error message: {e}")
+
+
 async def download_file(client, file_id, file_name, progress_tracker):
     """Download file from Telegram using userbot"""
     print(f"Starting download: {file_name}")
@@ -336,6 +457,17 @@ async def main():
             result["success"] = True
             result["file_id"] = pixeldrain_id
 
+            # Send success message directly to Telegram
+            await send_success_message(
+                bot_token=bot_token,
+                chat_id=chat_id,
+                message_id=message_id,
+                file_name=file_name,
+                file_size=file_size,
+                pixeldrain_id=pixeldrain_id,
+                elapsed=time.time() - progress.start_time
+            )
+
             # Clean up downloaded file
             try:
                 os.remove(file_path)
@@ -347,23 +479,14 @@ async def main():
         print(f"Error: {e}")
         result["error"] = str(e)
         
-        # Update telegram with error
-        try:
-            error_msg = f"❌ *Upload Failed*\n\n"
-            error_msg += f"📄 *File:* `{file_name}`\n"
-            error_msg += f"❗ *Error:* {str(e)}\n\n"
-            error_msg += "Please try again or contact support."
-            
-            url = f"https://api.telegram.org/bot{bot_token}/editMessageText"
-            data = {
-                "chat_id": chat_id,
-                "message_id": message_id,
-                "text": error_msg,
-                "parse_mode": "Markdown"
-            }
-            requests.post(url, json=data)
-        except:
-            pass
+        # Send error message directly to Telegram
+        await send_error_message(
+            bot_token=bot_token,
+            chat_id=chat_id,
+            message_id=message_id,
+            file_name=file_name,
+            error_msg=str(e)
+        )
 
     finally:
         # Save result to file for bot to read
