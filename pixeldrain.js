@@ -194,6 +194,11 @@ module.exports = {
         const uploadId = `${userId}_${chatId}`;
         const file = files[0]; // For now, handle single file
 
+        // Get source message info (for fresh file reference)
+        const sourceMsg = msg.reply_to_message || msg;
+        const sourceChatId = sourceMsg.chat.id;
+        const sourceMessageId = sourceMsg.message_id;
+
         // Create initial message
         const initialMsg = await bot.sendMessage(chatId, 
             '🚀 *Preparing Upload*\n━━━━━━━━━━━━━━━━━━━━\n\n' +
@@ -221,6 +226,8 @@ module.exports = {
                 userId: userId,
                 messageId: initialMsg.message_id,
                 fileId: file.fileId,
+                sourceChatId: sourceChatId,
+                sourceMessageId: sourceMessageId,
                 fileName: file.fileName,
                 fileSize: file.fileSize,
                 fileType: file.fileType,
@@ -284,6 +291,8 @@ module.exports = {
                         user_id: data.userId.toString(),
                         message_id: data.messageId.toString(),
                         file_id: data.fileId,
+                        source_message_id: data.sourceMessageId.toString(),
+                        source_chat_id: data.sourceChatId.toString(),
                         file_name: data.fileName,
                         file_size: data.fileSize.toString(),
                         file_type: data.fileType,
