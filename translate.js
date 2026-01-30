@@ -10,7 +10,7 @@ module.exports = {
   async execute(bot, msg, args) {
     const chatId = msg.chat.id;
     
-    // Support untuk reply: Jika user reply pesan, ambil teks dari pesan yang di-reply
+    // Support for reply: If user replies to a message, get text from replied message
     let targetLang = args[0]?.toLowerCase();
     let text = args.slice(1).join(' ');
 
@@ -23,9 +23,9 @@ module.exports = {
       return bot.sendMessage(chatId,
         '❌ *Usage:*\n' +
         '`/tr <lang> <text>`\n' +
-        'Atau balas pesan dengan `/tr <lang>`\n\n' +
+        'Or reply to message with `/tr <lang>`\n\n' +
         '*Example:*\n' +
-        '`/tr en Halo apa kabar`',
+        '`/tr en Hello how are you`',
         { parse_mode: 'Markdown' }
       );
     }
@@ -34,7 +34,7 @@ module.exports = {
     try {
       statusMsg = await bot.sendMessage(chatId, '🌐 *Translating...*', { parse_mode: 'Markdown' });
       
-      // Menggunakan mirror yang biasanya lebih stabil untuk publik
+      // Using a mirror that's usually more stable for public use
       const baseUrl = process.env.LIBRETRANSLATE_URL || 'https://translate.argosopentech.com';
       const apiUrl = `${baseUrl.replace(/\/$/, '')}/translate`;
       
@@ -43,19 +43,19 @@ module.exports = {
         source: 'auto',
         target: targetLang,
         format: 'text',
-        api_key: "" // Biarkan kosong jika tidak punya
+        api_key: "" // Leave empty if you don't have one
       }, {
         headers: { 
           'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0' // Menyamarkan sebagai browser untuk menghindari blokir simpel
+          'User-Agent': 'Mozilla/5.0' // Masquerade as browser to avoid simple blocks
         },
-        timeout: 10000 // Timeout 10 detik agar tidak ngehang
+        timeout: 10000 // Timeout 10 seconds to avoid hanging
       });
       
       const translated = response.data?.translatedText;
       
       if (!translated) {
-        // Jika API membalas tapi formatnya beda (error dari server)
+        // If API responds but format is different (error from server)
         const errorDetail = response.data?.error || 'Invalid response from API';
         throw new Error(errorDetail);
       }
@@ -78,9 +78,9 @@ module.exports = {
       
       const failMessage = '❌ *Translation Failed!*\n\n' +
                          `*Error:* \`${errorMsg}\`\n\n` +
-                         '• Pastikan kode bahasa benar (en, id, jp, dll)\n' +
-                         '• Server mungkin sedang sibuk/down\n' +
-                         '• Gunakan teks yang lebih pendek';
+                         '• Make sure language code is correct (en, id, jp, etc)\n' +
+                         '• Server might be busy/down\n' +
+                         '• Use shorter text';
 
       if (statusMsg) {
         await bot.editMessageText(failMessage, {

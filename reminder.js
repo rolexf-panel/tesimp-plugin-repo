@@ -8,9 +8,9 @@ module.exports = {
   async execute(bot, msg, args, botInstance) {
     const chatId = msg.chat.id;
     
-    // Format: /remind 10m beli kopi
+    // Format: /remind 10m buy coffee
     if (args.length < 2) {
-      return bot.sendMessage(chatId, '❌ Format: `/remind <waktu><m/h> <pesan>`\nContoh: `/remind 5m angkat jemuran`', { parse_mode: 'Markdown' });
+      return bot.sendMessage(chatId, '❌ Format: `/remind <time><m/h> <message>`\nExample: `/remind 5m take laundry`', { parse_mode: 'Markdown' });
     }
 
     const timeStr = args[0];
@@ -21,12 +21,12 @@ module.exports = {
     let ms = 0;
     if (unit === 'm') ms = timeValue * 60000;
     else if (unit === 'h') ms = timeValue * 3600000;
-    else return bot.sendMessage(chatId, '❌ Gunakan unit `m` untuk menit atau `h` untuk jam!');
+    else return bot.sendMessage(chatId, '❌ Use unit `m` for minutes or `h` for hours!');
 
-    await bot.sendMessage(chatId, `✅ Oke! Aku akan ingatkan: *"${task}"* dalam ${timeValue} ${unit === 'm' ? 'menit' : 'jam'}.`, { parse_mode: 'Markdown' });
+    await bot.sendMessage(chatId, `✅ Ok! I will remind you: *"${task}"* in ${timeValue} ${unit === 'm' ? 'minutes' : 'hours'}.`, { parse_mode: 'Markdown' });
 
     setTimeout(async () => {
-      await bot.sendMessage(chatId, `⏰ *PENGINGAT:* \n\n"${task}"`, { parse_mode: 'Markdown' });
+      await bot.sendMessage(chatId, `⏰ *REMINDER:* \n\n"${task}"`, { parse_mode: 'Markdown' });
     }, ms);
   }
 };

@@ -11,20 +11,20 @@ module.exports = {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
 
-    if (!botInstance.isOwner(userId)) return; // Silent ignore kalau bukan owner
+    if (!botInstance.isOwner(userId)) return; // Silent ignore if not owner
 
-    if (args.length === 0) return bot.sendMessage(chatId, '⚠️ Masukkan kode yang mau di-run.');
+    if (args.length === 0) return bot.sendMessage(chatId, '⚠️ Enter the code to run.');
 
     const code = args.join(' ');
     const command = msg.text.split(' ')[0].substring(botInstance.config.prefix.length);
 
-    // 1. EXEC (Shell Command) -> misal: /exec ls -la
+    // 1. EXEC (Shell Command) -> example: /exec ls -la
     if (command === 'exec') {
       child_process.exec(code, (error, stdout, stderr) => {
         if (error) return bot.sendMessage(chatId, `❌ Error:\n\`${error.message}\``, { parse_mode: 'Markdown' });
         if (stderr) return bot.sendMessage(chatId, `⚠️ Stderr:\n\`${stderr}\``, { parse_mode: 'Markdown' });
         
-        // Split pesan jika terlalu panjang
+        // Split message if too long
         if (stdout.length > 4000) {
           bot.sendDocument(chatId, Buffer.from(stdout), {}, { filename: 'output.txt' });
         } else {
@@ -34,7 +34,7 @@ module.exports = {
       return;
     }
 
-    // 2. EVAL (JavaScript) -> misal: /eval bot.sendMessage(chatId, 'Tes')
+    // 2. EVAL (JavaScript) -> example: /eval bot.sendMessage(chatId, 'Test')
     try {
       let evaled = await eval(`(async () => { ${code} })()`);
       
@@ -43,7 +43,7 @@ module.exports = {
       }
 
       if (evaled.length > 4000) {
-        bot.sendMessage(chatId, '⚠️ Output terlalu panjang, dikirim sebagai file.');
+        bot.sendMessage(chatId, '⚠️ Output too long, sent as file.');
         bot.sendDocument(chatId, Buffer.from(evaled), {}, { filename: 'eval_output.js' });
       } else {
         bot.sendMessage(chatId, `📤 *Output:*\n\`\`\`js\n${evaled}\n\`\`\``, { parse_mode: 'Markdown' });

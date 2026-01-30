@@ -4,7 +4,7 @@ const reminders = new Map(); // id -> timeout
 module.exports = {
   name: 'remindme',
   version: '1.0.0',
-  description: 'Set reminder sederhana dengan menit/detik',
+  description: 'Set simple reminder with minutes/seconds',
   commands: ['remind', 'remindme'],
 
   async execute(bot, msg, args) {
@@ -14,10 +14,10 @@ module.exports = {
       return bot.sendMessage(
         chatId,
         '⏰ *Usage:*\n' +
-        '`/remind <waktu> <pesan>`\n\n' +
-        'Contoh:\n' +
-        '`/remind 10m minum air`\n' +
-        '`/remind 30s cek mie`',
+        '`/remind <time> <message>`\n\n' +
+        'Example:\n' +
+        '`/remind 10m drink water`\n' +
+        '`/remind 30s check noodles`',
         { parse_mode: 'Markdown' }
       );
     }
@@ -27,7 +27,7 @@ module.exports = {
 
     const match = timeStr.match(/^(\d+)(s|m|h)$/);
     if (!match) {
-      return bot.sendMessage(chatId, '❌ Format waktu tidak valid. Contoh: 30s, 10m, 1h');
+      return bot.sendMessage(chatId, '❌ Invalid time format. Example: 30s, 10m, 1h');
     }
 
     const value = parseInt(match[1], 10);
@@ -37,7 +37,7 @@ module.exports = {
     if (unit === 'h') ms = value * 60 * 60 * 1000;
 
     if (ms < 1000 || ms > 24 * 60 * 60 * 1000) {
-      return bot.sendMessage(chatId, '⚠️ Waktu minimal 1 detik dan maksimal 24 jam.');
+      return bot.sendMessage(chatId, '⚠️ Time minimum 1 second and maximum 24 hours.');
     }
 
     const id = ++counter;
@@ -49,7 +49,7 @@ module.exports = {
         chatId,
         `⏰ *Reminder!*\n━━━━━━━━━━━━━━━━━━━━\n\n` +
         `📝 ${text}\n\n` +
-        `🕒 Set: ${new Date().toLocaleTimeString('id-ID')}`,
+        `🕒 Set: ${new Date().toLocaleTimeString('en-US')}`,
         { parse_mode: 'Markdown' }
       );
     }, ms);
@@ -58,11 +58,10 @@ module.exports = {
 
     await bot.sendMessage(
       chatId,
-      `✅ Reminder diset dalam *${timeStr}*.\n` +
+      `✅ Reminder set in *${timeStr}*.\n` +
       `ID: \`${id}\`\n` +
-      `Waktu kira-kira: *${when.toLocaleTimeString('id-ID')}*`,
+      `Approximate time: *${when.toLocaleTimeString('en-US')}*`,
       { parse_mode: 'Markdown' }
     );
   }
 };
-

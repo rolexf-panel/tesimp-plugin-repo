@@ -3,7 +3,7 @@ const choices = ['rock', 'paper', 'scissors'];
 module.exports = {
   name: 'game-rps',
   version: '1.0.0',
-  description: 'Main suit batu-gunting-kertas dengan bot',
+  description: 'Play rock-paper-scissors with bot',
   commands: ['rps', 'suit'],
 
   async execute(bot, msg, args) {
@@ -12,15 +12,15 @@ module.exports = {
     if (!args[0]) {
       return bot.sendMessage(
         chatId,
-        '✊ ✋ ✌️ *Batu-Gunting-Kertas*\n\n' +
-        'Cara main:\n' +
+        '✊ ✋ ✌️ *Rock-Paper-Scissors*\n\n' +
+        'How to play:\n' +
         '`/rps rock`\n' +
         '`/rps paper`\n' +
         '`/rps scissors`\n\n' +
-        'Alias bahasa Indonesia:\n' +
-        '`/suit batu`\n' +
-        '`/suit kertas`\n' +
-        '`/suit gunting`',
+        'Indonesian aliases:\n' +
+        '`/suit batu` (rock)\n' +
+        '`/suit kertas` (paper)\n' +
+        '`/suit gunting` (scissors)',
         { parse_mode: 'Markdown' }
       );
     }
@@ -35,7 +35,7 @@ module.exports = {
     if (!userChoice) {
       return bot.sendMessage(
         chatId,
-        '❌ Pilihan tidak dikenal. Gunakan: rock / paper / scissors (atau batu / kertas / gunting).'
+        '❌ Unknown choice. Use: rock / paper / scissors (or batu / kertas / gunting).'
       );
     }
 
@@ -51,16 +51,15 @@ module.exports = {
 
     const toEmoji = (c) => (c === 'rock' ? '✊' : c === 'paper' ? '✋' : '✌️');
 
-    let text = '✊ ✋ ✌️ *Batu-Gunting-Kertas*\n';
+    let text = '✊ ✋ ✌️ *Rock-Paper-Scissors*\n';
     text += '━━━━━━━━━━━━━━━━━━━━\n\n';
-    text += `👤 Kamu: ${toEmoji(userChoice)} *${userChoice}*\n`;
-    text += `🤖 Bot : ${toEmoji(botChoice)} *${botChoice}*\n\n`;
+    text += `👤 You: ${toEmoji(userChoice)} *${userChoice}*\n`;
+    text += `🤖 Bot: ${toEmoji(botChoice)} *${botChoice}*\n\n`;
 
-    if (result === 'win') text += '🎉 *Kamu menang!* GG.';
-    else if (result === 'lose') text += '😜 *Kamu kalah!* Coba lagi dong.';
-    else text += '🤝 *Seri!* Kita seimbang.';
+    if (result === 'win') text += '🎉 *You win!* GG.';
+    else if (result === 'lose') text += '😜 *You lose!* Try again.';
+    else text += '🤝 *Draw!* We\'re even.';
 
     await bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
   }
 };
-

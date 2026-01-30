@@ -4,27 +4,27 @@ const axios = require('axios');
 module.exports = {
   name: 'ping',
   version: '1.2.1',
-  description: 'Cek status semua bot dan server',
+  description: 'Check status of all bots and server',
   commands: ['ping', 'speed', 'status'],
 
   async execute(bot, msg, args, botInstance) {
     const chatId = msg.chat.id;
     const startMain = Date.now();
     
-    const sentMsg = await bot.sendMessage(chatId, '📶 *Mengecek status sistem...*', { parse_mode: 'Markdown' });
+    const sentMsg = await bot.sendMessage(chatId, '📶 *Checking system status...*', { parse_mode: 'Markdown' });
     const latencyMain = Date.now() - startMain;
 
-    // Ambil token dari process.env atau dari config botInstance jika tersedia
+    // Get token from process.env or from config botInstance if available
     const reqToken = process.env.REQ_BOT_TOKEN || (botInstance.config && botInstance.config.reqBotToken);
     
-    let statusReq = "🔴 Tidak Terkonfigurasi";
+    let statusReq = "🔴 Not Configured";
     let latencyReq = "N/A";
 
     if (reqToken) {
-        statusReq = "🟡 Menghubungkan...";
+        statusReq = "🟡 Connecting...";
         try {
             const startReq = Date.now();
-            // Memanggil API Telegram langsung untuk cek kesehatan bot request
+            // Call Telegram API directly to check request bot health
             const res = await axios.get(`https://api.telegram.org/bot${reqToken}/getMe`, { timeout: 3000 });
             
             if (res.data && res.data.ok) {
@@ -32,7 +32,7 @@ module.exports = {
                 const safeUsername = res.data.result.username.replace(/_/g, '\\_');
                 statusReq = `🟢 Online (@${safeUsername})`;
             } else {
-                statusReq = "🔴 Token Tidak Valid";
+                statusReq = "🔴 Invalid Token";
             }
         } catch (e) {
             statusReq = "🔴 Offline / API Timeout";
@@ -40,7 +40,7 @@ module.exports = {
         }
     }
 
-    // Info RAM & System
+    // RAM & System Info
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
@@ -49,10 +49,10 @@ module.exports = {
     const memPercent = ((usedMem / totalMem) * 100).toFixed(1);
 
     const text = `
-🏓 *PONG! STATUS SISTEM*
+🏓 *PONG! SYSTEM STATUS*
 ━━━━━━━━━━━━━━━━━━━━
 
-🤖 *Main Bot (Utama)*
+🤖 *Main Bot*
 • Status: 🟢 Online
 • Speed: \`${latencyMain}ms\`
 • Runtime: \`${botInstance.getRuntime()}\`
@@ -61,7 +61,7 @@ module.exports = {
 • Status: ${statusReq}
 • Speed: \`${latencyReq}${latencyReq !== 'N/A' ? 'ms' : ''}\`
 
-💻 *Server VPS Status*
+💻 *VPS Server Status*
 • RAM: \`${usedGB}GB / ${totalGB}GB (${memPercent}%)\`
 • Platform: \`${os.platform()} ${os.arch()}\`
 • Time: \`${botInstance.getTime()}\`

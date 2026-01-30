@@ -23,10 +23,10 @@ const writeQueue = (data) => fs.writeJsonSync(queuePath, data, { spaces: 2 });
 module.exports = {
     name: 'pixeldrain',
     version: '2.0.0',
-    description: 'Upload file ke Pixeldrain (up to 2GB) via GitHub Actions',
+    description: 'Upload file to Pixeldrain (up to 2GB) via GitHub Actions',
     commands: ['pixeldrain', 'pd', 'pdlist', 'pdcancel'],
 
-    // Storage untuk tracking upload yang sedang berjalan
+    // Storage for tracking active uploads
     activeUploads: new Map(),
 
     async execute(bot, msg, args, botInstance) {
@@ -39,12 +39,12 @@ module.exports = {
             return this.handleCancel(bot, chatId, userId);
         }
 
-        // Command: /pdlist - Lihat riwayat
+        // Command: /pdlist - View history
         if (command === 'pdlist') {
             return this.handleList(bot, chatId, userId);
         }
 
-        // Command: /pd atau /pixeldrain - Upload file
+        // Command: /pd or /pixeldrain - Upload file
         return this.handleUpload(bot, msg, chatId, userId, botInstance);
     },
 
@@ -53,10 +53,10 @@ module.exports = {
         const userFiles = db.filter(f => f.userId === userId);
         
         if (userFiles.length === 0) {
-            return bot.sendMessage(chatId, '📭 Kamu belum pernah mengupload file.');
+            return bot.sendMessage(chatId, '📭 You have not uploaded any files yet.');
         }
 
-        let list = `📁 *Riwayat Upload Pixeldrain*\n━━━━━━━━━━━━━━━━━━━━\n\n`;
+        let list = `📁 *Pixeldrain Upload History*\n━━━━━━━━━━━━━━━━━━━━\n\n`;
         list += `Total: ${userFiles.length} files\n\n`;
         
         userFiles.slice(-15).reverse().forEach((f, i) => {
@@ -81,7 +81,7 @@ module.exports = {
         const uploadId = `${userId}_${chatId}`;
         
         if (!this.activeUploads.has(uploadId)) {
-            return bot.sendMessage(chatId, '❌ Tidak ada upload yang sedang berjalan.');
+            return bot.sendMessage(chatId, '❌ No active upload running.');
         }
 
         const upload = this.activeUploads.get(uploadId);
@@ -92,7 +92,7 @@ module.exports = {
         // Update message
         try {
             await bot.editMessageText(
-                '🚫 *Upload Dibatalkan*\n\n' +
+                '🚫 *Upload Cancelled*\n\n' +
                 `File: ${upload.fileName}\n` +
                 `Status: Cancelled by user`,
                 {
@@ -116,7 +116,7 @@ module.exports = {
 
         this.activeUploads.delete(uploadId);
         
-        return bot.sendMessage(chatId, '✅ Upload berhasil dibatalkan.');
+        return bot.sendMessage(chatId, '✅ Upload successfully cancelled.');
     },
 
     async handleUpload(bot, msg, chatId, userId, botInstance) {
@@ -125,8 +125,8 @@ module.exports = {
         // Check if already uploading
         if (this.activeUploads.has(uploadId)) {
             return bot.sendMessage(chatId, 
-                '⏳ Kamu masih memiliki upload yang sedang berjalan.\n\n' +
-                'Gunakan /pdcancel untuk membatalkan upload sebelumnya.'
+                '⏳ You still have an active upload running.\n\n' +
+                'Use /pdcancel to cancel previous upload.'
             );
         }
 
@@ -136,9 +136,9 @@ module.exports = {
         if (files.length === 0) {
             return bot.sendMessage(chatId, 
                 '❌ *Usage:*\n' +
-                '• Kirim file dengan caption `/pd`\n' +
-                '• Reply file dengan `/pd`\n' +
-                '• Kirim multiple files (media group)\n\n' +
+                '• Send file with caption `/pd`\n' +
+                '• Reply to file with `/pd`\n' +
+                '• Send multiple files (media group)\n\n' +
                 '*Supported:* Documents, Photos, Videos, Audio\n' +
                 '*Max Size:* 2GB per file',
                 { parse_mode: 'Markdown' }

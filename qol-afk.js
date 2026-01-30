@@ -3,7 +3,7 @@ const afkMap = new Map(); // userId -> { reason, since }
 module.exports = {
   name: 'afk',
   version: '1.0.0',
-  description: 'Set status AFK dan auto-notice ketika kembali',
+  description: 'Set AFK status and auto-notice when back',
   commands: ['afk'],
 
   async execute(bot, msg, args) {
@@ -15,12 +15,12 @@ module.exports = {
 
     await bot.sendMessage(
       chatId,
-      `😴 *${msg.from.first_name || 'Kamu'}* sekarang AFK.\nAlasan: _${reason}_`,
+      `😴 *${msg.from.first_name || 'You'}* are now AFK.\nReason: _${reason}_`,
       { parse_mode: 'Markdown' }
     );
   },
 
-  // Opsional: panggil ini dari handler global on('message') kalau core bot mendukung
+  // Optional: call this from global handler on('message') if core bot supports it
   async handleMessage(bot, msg) {
     if (!msg || !msg.from) return;
     const userId = msg.from.id;
@@ -29,10 +29,9 @@ module.exports = {
       afkMap.delete(userId);
       await bot.sendMessage(
         msg.chat.id,
-        `👋 Selamat datang kembali, *${msg.from.first_name || 'user'}*! Status AFK kamu dihapus.`,
+        `👋 Welcome back, *${msg.from.first_name || 'user'}*! Your AFK status has been removed.`,
         { parse_mode: 'Markdown' }
       );
     }
   }
 };
-
