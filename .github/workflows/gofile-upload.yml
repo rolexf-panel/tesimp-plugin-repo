@@ -1,0 +1,90 @@
+name: Gofile Upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      chat_id:
+        description: 'Telegram Chat ID'
+        required: true
+      user_id:
+        description: 'Telegram User ID'
+        required: true
+      message_id:
+        description: 'Telegram Message ID for updates'
+        required: true
+      file_id:
+        description: 'Telegram File ID'
+        required: false
+      source_message_id:
+        description: 'Source Message ID'
+        required: true
+      source_chat_id:
+        description: 'Source Chat ID'
+        required: true
+      file_name:
+        description: 'File Name'
+        required: true
+      file_size:
+        description: 'File Size in bytes'
+        required: true
+      mime_type:
+        description: 'MIME Type'
+        required: true
+      bot_token:
+        description: 'Telegram Bot Token'
+        required: true
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # Long timeout for large files
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyrogram tgcrypto aiohttp aiofiles tqdm
+
+      - name: Create Config
+        env:
+          API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          SESSION_STRING: ${{ secrets.TELEGRAM_SESSION }}
+          BOT_TOKEN: ${{ inputs.bot_token }}
+        run: |
+          cat > config.json << EOF
+          {
+            "api_id": "${API_ID}",
+            "api_hash": "${API_HASH}",
+            "session_string": "${SESSION_STRING}",
+            "bot_token": "${BOT_TOKEN}",
+            "chat_id": "${{ inputs.chat_id }}",
+            "user_id": "${{ inputs.user_id }}",
+            "message_id": "${{ inputs.message_id }}",
+            "source_chat_id": "${{ inputs.source_chat_id }}",
+            "source_message_id": "${{ inputs.source_message_id }}",
+            "file_name": "${{ inputs.file_name }}",
+            "file_size": "${{ inputs.file_size }}",
+            "mime_type": "${{ inputs.mime_type }}"
+          }
+          EOF
+
+      - name: Download and Upload to Gofile
+        run: python3 .github/scripts/gofile_uploader.py
+
+      - name: Cleanup
+        if: always()
+        observables run: |
+          rm -f config.json
+          rm -f *.session
+          rm -rf downloads/
+          rm -rf __pycache__/
