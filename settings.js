@@ -26,14 +26,14 @@ module.exports = {
     const chatId = message.chat.id;
     const messageId = message.message_id;
 
-    // Pastikan hanya menangani callback settings
+    // Only handle settings callbacks
     if (!data.startsWith('settings:')) return;
 
     const action = data.split(':')[1];
     let text = '';
 
     if (action === 'main') {
-      text = '⚙️ *Bot Settings*\n\nSilakan pilih kategori di bawah ini:';
+      text = '⚙️ *Bot Settings*\n\nPlease select a category below:';
     } else if (action === 'info') {
       text = `🖥️ *System Information*\n━━━━━━━━━━━━━━━━━━━━\n• Uptime: \`${botInstance.getRuntime()}\`\n• Time: \`${botInstance.getTime()}\`\n• Platform: \`${require('os').platform()}\``;
     } else if (action === 'profile') {
@@ -48,9 +48,9 @@ module.exports = {
         reply_markup: { inline_keyboard: this.getSettingsKeyboard() }
       };
 
-      // LOGIKA PENYELAMAT:
-      // Jika pesan memiliki foto, gunakan editMessageCaption
-      // Jika tidak, gunakan editMessageText
+      // RESCUE LOGIC:
+      // If message has photo, use editMessageCaption
+      // If not, use editMessageText
       if (message.photo || message.caption !== undefined) {
         await bot.editMessageCaption(text, options);
       } else {
@@ -60,8 +60,8 @@ module.exports = {
       await bot.answerCallbackQuery(query.id);
     } catch (err) {
       console.error('Settings Callback Error:', err.message);
-      // Jika masih error karena perbedaan tipe, coba paksa hapus dan kirim baru (opsi terakhir)
-      await bot.answerCallbackQuery(query.id, { text: "Gagal memproses menu settings." });
+      // If still error due to type difference, try forcing delete and send new (last option)
+      await bot.answerCallbackQuery(query.id, { text: "Failed to process settings menu." });
     }
   }
 };

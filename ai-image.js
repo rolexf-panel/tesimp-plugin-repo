@@ -22,8 +22,8 @@ module.exports = {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return bot.sendMessage(chatId,
-        '⚠️ OPENAI_API_KEY belum diset di environment.\n' +
-        'Set dulu lalu restart bot.'
+        '⚠️ OPENAI_API_KEY is not set in environment.\n' +
+        'Please set it and restart the bot.'
       );
     }
     

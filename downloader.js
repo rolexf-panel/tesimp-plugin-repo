@@ -10,27 +10,27 @@ module.exports = {
     const chatId = msg.chat.id;
     const command = msg.text.split(' ')[0].substring(botInstance.config.prefix.length);
 
-    if (args.length === 0) return bot.sendMessage(chatId, `⚠️ Masukkan URL! Contoh: /${command} https://linknya...`);
+    if (args.length === 0) return bot.sendMessage(chatId, `⚠️ Please provide a URL! Example: /${command} https://linkhere...`);
 
     const url = args[0];
     const loadingMsg = await bot.sendMessage(chatId, '🔍 Searching & Downloading...');
 
     try {
-      // Menggunakan API pihak ketiga (cobiro.github.io atau sejenisnya untuk contoh)
-      // Kamu bisa ganti endpoint ini dengan API premium/pribadi kamu
+      // Using third-party API (cobiro.github.io or similar for example)
+      // You can replace this endpoint with your premium/private API
       
       let apiUrl = '';
       if (command === 'tiktok') apiUrl = `https://api.tiklydown.eu.org/api/download?url=${url}`;
       
       if (!apiUrl) {
-         return bot.editMessageText('❌ Fitur ini sedang maintenance.', { chat_id: chatId, message_id: loadingMsg.message_id });
+         return bot.editMessageText('❌ This feature is under maintenance.', { chat_id: chatId, message_id: loadingMsg.message_id });
       }
 
       const res = await axios.get(apiUrl);
       const data = res.data;
 
       if (command === 'tiktok') {
-        // Sesuaikan parsing JSON dengan API yang dipakai
+        // Adjust JSON parsing according to the API used
         const videoUrl = data.video?.noWatermark || data.url;
         const caption = `✅ *TikTok Download*\nAuthor: ${data.author?.name || '-'}\nTitle: ${data.title || '-'}`;
 
@@ -40,7 +40,7 @@ module.exports = {
 
     } catch (error) {
       console.error(error);
-      bot.editMessageText(`❌ Gagal mengambil data. Pastikan link valid atau API sedang down.\nError: ${error.message}`, {
+      bot.editMessageText(`❌ Failed to fetch data. Make sure the link is valid or the API is down.\nError: ${error.message}`, {
         chat_id: chatId,
         message_id: loadingMsg.message_id
       });

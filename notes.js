@@ -20,7 +20,7 @@ const writeDB = (data) => {
 module.exports = {
   name: 'notes',
   version: '2.0.0',
-  description: 'Simpan catatan via reply (Support Media)',
+  description: 'Save notes via reply (Supports Media)',
   commands: ['notes'],
 
   async execute(bot, msg, args, botInstance) {
@@ -30,14 +30,14 @@ module.exports = {
     const subCommand = args[0]?.toLowerCase();
     const db = readDB();
 
-    // 1. /notes add <nama_catatan> (REPLY REQUIRED)
+    // 1. /notes add <note_name> (REPLY REQUIRED)
     if (subCommand === 'add') {
       const noteName = args.slice(1).join(' ');
       if (!msg.reply_to_message) {
-        return bot.sendMessage(chatId, '❌ *Gagal!* Balas (reply) ke pesan yang ingin disimpan sebagai catatan.');
+        return bot.sendMessage(chatId, '❌ *Failed!* Reply to a message you want to save as a note.');
       }
       if (!noteName) {
-        return bot.sendMessage(chatId, '❌ *Format Salah!* Gunakan: `/notes add <nama catatan>` sambil membalas pesan.');
+        return bot.sendMessage(chatId, '❌ *Wrong Format!* Use: `/notes add <note name>` while replying to a message.');
       }
 
       if (!db[userId]) db[userId] = [];
@@ -47,40 +47,40 @@ module.exports = {
         id: Math.floor(1000 + Math.random() * 9000),
         name: noteName,
         message_id: replyMsg.message_id,
-        chat_id: chatId, // Disimpan untuk fitur copyMessage
-        date: new Date().toLocaleString('id-ID')
+        chat_id: chatId, // Saved for copyMessage feature
+        date: new Date().toLocaleString('en-US')
       };
 
       db[userId].push(newNote);
       writeDB(db);
-      return bot.sendMessage(chatId, `✅ *Berhasil!* Catatan \`${noteName}\` disimpan.\nID: \`${newNote.id}\``, { parse_mode: 'Markdown' });
+      return bot.sendMessage(chatId, `✅ *Success!* Note \`${noteName}\` saved.\nID: \`${newNote.id}\``, { parse_mode: 'Markdown' });
     }
 
     // 2. /notes list
     if (subCommand === 'list') {
       const userNotes = db[userId] || [];
-      if (userNotes.length === 0) return bot.sendMessage(chatId, '📭 Kamu tidak punya catatan.');
+      if (userNotes.length === 0) return bot.sendMessage(chatId, '📭 You have no notes.');
 
-      let text = `📝 *Daftar Catatan Kamu*\n━━━━━━━━━━━━━━━━━━━━\n\n`;
+      let text = `📝 *Your Notes List*\n━━━━━━━━━━━━━━━━━━━━\n\n`;
       userNotes.forEach((n, i) => {
         text += `${i + 1}. *${n.name}* (ID: \`${n.id}\`)\n`;
       });
-      text += `\n💡 _Gunakan "/notes get <ID>"_`;
+      text += `\n💡 _Use "/notes get <ID>"_`;
       return bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
     }
 
-    // 3. /notes get <id> (MENGGUNAKAN COPYMESSAGE)
+    // 3. /notes get <id> (USING COPYMESSAGE)
     if (subCommand === 'get') {
       const noteId = args[1];
       const note = (db[userId] || []).find(n => n.id.toString() === noteId);
 
-      if (!note) return bot.sendMessage(chatId, '❌ ID Catatan tidak ditemukan.');
+      if (!note) return bot.sendMessage(chatId, '❌ Note ID not found.');
       
       try {
-        // Mengirim kembali pesan yang asli beserta attachmentnya
+        // Send back the original message along with its attachment
         await bot.copyMessage(chatId, note.chat_id, note.message_id);
       } catch (e) {
-        bot.sendMessage(chatId, '❌ *Gagal mengambil media.* Pesan asli mungkin sudah dihapus atau bot tidak memiliki akses ke chat tersebut.');
+        bot.sendMessage(chatId, '❌ *Failed to retrieve media.* Original message may have been deleted or bot does not have access to that chat.');
       }
       return;
     }
@@ -88,25 +88,25 @@ module.exports = {
     // 4. /notes del <id>
     if (subCommand === 'del') {
       const noteId = args[1];
-      if (!db[userId]) return bot.sendMessage(chatId, '❌ Kamu tidak punya catatan.');
+      if (!db[userId]) return bot.sendMessage(chatId, '❌ You have no notes.');
 
       const initialLength = db[userId].length;
       db[userId] = db[userId].filter(n => n.id.toString() !== noteId);
 
-      if (db[userId].length === initialLength) return bot.sendMessage(chatId, '❌ ID tidak ditemukan.');
+      if (db[userId].length === initialLength) return bot.sendMessage(chatId, '❌ ID not found.');
 
       writeDB(db);
-      return bot.sendMessage(chatId, '🗑️ Catatan berhasil dihapus.');
+      return bot.sendMessage(chatId, '🗑️ Note successfully deleted.');
     }
 
-    // 5. /notes get-user <id_user> (Owner)
+    // 5. /notes get-user <user_id> (Owner)
     if (subCommand === 'get-user') {
-      if (userId !== ownerId) return bot.sendMessage(chatId, '🚫 Khusus Owner.');
+      if (userId !== ownerId) return bot.sendMessage(chatId, '🚫 Owner only.');
       const targetId = args[1];
       const targetNotes = db[targetId] || [];
-      if (targetNotes.length === 0) return bot.sendMessage(chatId, `📭 User \`${targetId}\` kosong.`);
+      if (targetNotes.length === 0) return bot.sendMessage(chatId, `📭 User \`${targetId}\` has no notes.`);
 
-      let text = `👤 *Notes User:* \`${targetId}\`\n━━━━━━━━━━━━━━━━━━━━\n\n`;
+      let text = `👤 *User Notes:* \`${targetId}\`\n━━━━━━━━━━━━━━━━━━━━\n\n`;
       targetNotes.forEach((n, i) => {
         text += `${i + 1}. *${n.name}* (ID: \`${n.id}\`) - ${n.date}\n`;
       });
@@ -116,10 +116,10 @@ module.exports = {
     // Default Help
     const helpText = `📝 *Notes System v2.0*
 ━━━━━━━━━━━━━━━━━━━━
-• \`/notes add <nama>\` (Reply ke pesan/media)
-• \`/notes list\` (Lihat daftar)
-• \`/notes get <id>\` (Ambil catatan)
-• \`/notes del <id>\` (Hapus catatan)`;
+• \`/notes add <name>\` (Reply to message/media)
+• \`/notes list\` (View list)
+• \`/notes get <id>\` (Retrieve note)
+• \`/notes del <id>\` (Delete note)`;
 
     bot.sendMessage(chatId, helpText, { parse_mode: 'Markdown' });
   }

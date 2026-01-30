@@ -3,12 +3,12 @@ const axios = require('axios');
 module.exports = {
   name: 'crypto',
   version: '2.0.0',
-  description: 'Melihat kondisi harga pasar cryptocurrency live (CoinGecko)',
+  description: 'View live cryptocurrency market prices (CoinGecko)',
   commands: ['crypto', 'market', 'harga'],
 
   async execute(bot, msg) {
     const chatId = msg.chat.id;
-    const loadingMsg = await bot.sendMessage(chatId, '📊 *Mengambil data pasar crypto...*', { parse_mode: 'Markdown' });
+    const loadingMsg = await bot.sendMessage(chatId, '📊 *Fetching crypto market data...*', { parse_mode: 'Markdown' });
 
     try {
       const apiKey = process.env.COINGECKO_API_KEY || null;
@@ -27,7 +27,7 @@ module.exports = {
       const market = res.data;
 
       if (!Array.isArray(market) || market.length === 0) {
-        throw new Error('Data market kosong');
+        throw new Error('Market data is empty');
       }
 
       const getEmoji = (change) => parseFloat(change) >= 0 ? '🚀' : '🔻';
@@ -47,7 +47,7 @@ module.exports = {
       });
 
       text += `━━━━━━━━━━━━━━━━━━━━\n`;
-      text += `🕒 _Last Update: ${new Date().toLocaleTimeString('id-ID')}_`;
+      text += `🕒 _Last Update: ${new Date().toLocaleTimeString('en-US')}_`;
 
       await bot.editMessageText(text, {
         chat_id: chatId,
@@ -57,7 +57,7 @@ module.exports = {
 
     } catch (error) {
       console.error('Crypto Plugin Error:', error.message);
-      await bot.editMessageText('⚠️ *Gagal mengambil data market.*\nPastikan API sedang aktif atau coba lagi nanti.', {
+      await bot.editMessageText('⚠️ *Failed to fetch market data.*\nMake sure the API is active or try again later.', {
         chat_id: chatId,
         message_id: loadingMsg.message_id,
         parse_mode: 'Markdown'

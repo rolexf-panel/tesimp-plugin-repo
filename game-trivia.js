@@ -5,7 +5,7 @@ const activeTrivia = new Map(); // chatId:userId -> { correct, question }
 module.exports = {
   name: 'game-trivia',
   version: '1.0.0',
-  description: 'Kuis trivia pilihan ganda',
+  description: 'Multiple choice trivia quiz',
   commands: ['trivia', 'quiz'],
 
   async execute(bot, msg) {
@@ -38,8 +38,8 @@ module.exports = {
 
       let text = '🧠 *Trivia Quiz*\n';
       text += '━━━━━━━━━━━━━━━━━━━━\n\n';
-      text += `❓ *Pertanyaan:*\n${decode(q.question)}\n\n`;
-      text += 'Pilih jawaban yang benar di bawah ini.';
+      text += `❓ *Question:*\n${decode(q.question)}\n\n`;
+      text += 'Choose the correct answer below.';
 
       await bot.sendMessage(chatId, text, {
         parse_mode: 'Markdown',
@@ -47,7 +47,7 @@ module.exports = {
       });
     } catch (e) {
       console.error('Trivia error:', e);
-      await bot.sendMessage(chatId, '❌ Gagal mengambil soal trivia. Coba lagi nanti.');
+      await bot.sendMessage(chatId, '❌ Failed to fetch trivia question. Try again later.');
     }
   },
 
@@ -60,7 +60,7 @@ module.exports = {
 
     if (!activeTrivia.has(key)) {
       return bot.answerCallbackQuery(query.id, {
-        text: 'Soal sudah tidak aktif. Kirim /trivia lagi.',
+        text: 'Question is no longer active. Send /trivia again.',
         show_alert: true
       });
     }
@@ -72,23 +72,23 @@ module.exports = {
     try {
       payload = JSON.parse(Buffer.from(query.data.split(':')[1], 'base64').toString());
     } catch {
-      return bot.answerCallbackQuery(query.id, { text: 'Jawaban tidak valid.' });
+      return bot.answerCallbackQuery(query.id, { text: 'Invalid answer.' });
     }
 
     const chosen = payload.a;
 
     if (chosen === state.correct) {
-      await bot.answerCallbackQuery(query.id, { text: '✅ Benar! Keren.', show_alert: true });
+      await bot.answerCallbackQuery(query.id, { text: '✅ Correct! Great job.', show_alert: true });
       await bot.sendMessage(
         chatId,
-        `✅ *Benar!*\n\n❓ ${state.question}\n\n✔️ Jawaban: *${state.correct}*`,
+        `✅ *Correct!*\n\n❓ ${state.question}\n\n✔️ Answer: *${state.correct}*`,
         { parse_mode: 'Markdown' }
       );
     } else {
-      await bot.answerCallbackQuery(query.id, { text: '❌ Salah, coba lagi lain waktu.', show_alert: true });
+      await bot.answerCallbackQuery(query.id, { text: '❌ Wrong, try again next time.', show_alert: true });
       await bot.sendMessage(
         chatId,
-        `❌ *Salah.*\n\n❓ ${state.question}\n\n✔️ Jawaban yang benar: *${state.correct}*`,
+        `❌ *Wrong.*\n\n❓ ${state.question}\n\n✔️ Correct answer: *${state.correct}*`,
         { parse_mode: 'Markdown' }
       );
     }

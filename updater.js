@@ -5,43 +5,43 @@ const { execSync } = require('child_process');
 module.exports = {
   name: 'updater',
   version: '1.2.0',
-  description: 'Reload dan update semua plugin secara otomatis',
+  description: 'Reload and update all plugins automatically',
   commands: ['update', 'reload'],
 
   async execute(bot, msg, args, botInstance) {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
 
-    // Optional: batasi hanya owner
+    // Optional: limit to owner only
     // if (userId !== Number(process.env.OWNER_ID)) return;
 
-    const waitMsg = await bot.sendMessage(chatId, '🔄 *Memproses pembaruan plugin...*', { parse_mode: 'Markdown' });
+    const waitMsg = await bot.sendMessage(chatId, '🔄 *Processing plugin updates...*', { parse_mode: 'Markdown' });
 
     try {
-      const pluginsPath = __dirname; // folder plugins (satu folder dengan file ini)
+      const pluginsPath = __dirname; // plugins folder (same folder as this file)
       const updaterFilename = path.basename(__filename);
-      // Ambil semua .js kecuali updater ini sendiri
+      // Get all .js files except this updater
       const pluginFiles = fs.readdirSync(pluginsPath)
         .filter(file => file.endsWith('.js') && file !== updaterFilename);
 
-      // Reset daftar perintah di instance bot
+      // Reset command list in bot instance
       botInstance.commands = new Map();
 
       const now = Date.now();
 
-      // Helper: format waktu relatif (detik/menit/jam/hari)
+      // Helper: format relative time (seconds/minutes/hours/days)
       function formatRelativeTime(tsMs) {
         const diff = Math.max(0, now - tsMs);
         const sec = Math.floor(diff / 1000);
-        if (sec < 5) return 'baru saja';
-        if (sec < 60) return `${sec} detik yang lalu`;
+        if (sec < 5) return 'just now';
+        if (sec < 60) return `${sec} seconds ago`;
         const min = Math.floor(sec / 60);
-        if (min < 60) return `${min} menit yang lalu`;
+        if (min < 60) return `${min} minutes ago`;
         const hour = Math.floor(min / 60);
-        if (hour < 24) return `${hour} jam yang lalu`;
+        if (hour < 24) return `${hour} hours ago`;
         const day = Math.floor(hour / 24);
-        if (day < 7) return `${day} hari yang lalu`;
-        // lebih tua: tampilkan tanggal dd-mm-yyyy
+        if (day < 7) return `${day} days ago`;
+        // older: display date dd-mm-yyyy
         const d = new Date(tsMs);
         const dd = String(d.getDate()).padStart(2, '0');
         const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -56,17 +56,17 @@ module.exports = {
 
         let timeDisplay = '';
         try {
-          // Preferensi: gunakan waktu commit git terakhir jika repo git ada
+          // Preference: use git last commit time if git repo exists
           let tsMs;
           try {
-            // Perintah ini mengembalikan epoch seconds dari terakhir commit yang menyentuh file
+            // This command returns epoch seconds from last commit touching the file
             const gitOut = execSync(`git log -1 --format=%ct -- "${filePath}"`, { stdio: ['ignore', 'pipe', 'ignore'] })
               .toString().trim();
             if (gitOut && /^\d+$/.test(gitOut)) {
               tsMs = Number(gitOut) * 1000;
             }
           } catch (gitErr) {
-            // git tidak tersedia atau file belum di-track, fallback ke mtime
+            // git not available or file not tracked, fallback to mtime
             tsMs = undefined;
           }
 
@@ -77,46 +77,46 @@ module.exports = {
 
           timeDisplay = formatRelativeTime(tsMs);
         } catch (timeErr) {
-          // Jika ada yang aneh, gunakan -unknown-
-          timeDisplay = 'waktu tidak diketahui';
-          console.error('Error mendapatkan waktu untuk', file, timeErr);
+          // If something weird, use -unknown-
+          timeDisplay = 'unknown time';
+          console.error('Error getting time for', file, timeErr);
         }
 
-        // Hapus cache require agar module di-require ulang
+        // Delete require cache so module is re-required
         try {
           const resolved = require.resolve(filePath);
           if (require.cache[resolved]) delete require.cache[resolved];
         } catch (e) {
-          // jika require.resolve gagal, lanjut saja
+          // if require.resolve fails, just continue
         }
 
-        // Coba load plugin
+        // Try to load plugin
         try {
           const newPlugin = require(filePath);
 
           if (newPlugin && Array.isArray(newPlugin.commands)) {
             newPlugin.commands.forEach(cmd => {
-              // Pastikan key string
+              // Make sure key is string
               const key = typeof cmd === 'string' ? cmd : JSON.stringify(cmd);
               botInstance.commands.set(key, newPlugin);
             });
             const pluginName = newPlugin.name || path.basename(file, '.js');
             updateLines.push(`• *${pluginName}* (${timeDisplay})`);
           } else {
-            // Plugin tidak memiliki struktur commands yg diharapkan
+            // Plugin doesn't have expected commands structure
             const pluginName = (newPlugin && newPlugin.name) ? newPlugin.name : path.basename(file, '.js');
-            updateLines.push(`• *${pluginName}* (${timeDisplay}) — _tidak ada perintah terdaftar_`);
+            updateLines.push(`• *${pluginName}* (${timeDisplay}) — _no commands registered_`);
           }
         } catch (err) {
-          console.error('Gagal memuat plugin', file, err);
-          updateLines.push(`• ❌ *${path.basename(file, '.js')}* (${timeDisplay}) — gagal dimuat`);
-          // jangan throw; lanjut ke plugin berikutnya
+          console.error('Failed to load plugin', file, err);
+          updateLines.push(`• ❌ *${path.basename(file, '.js')}* (${timeDisplay}) — failed to load`);
+          // don't throw; continue to next plugin
         }
       }
 
-      const updateDetails = updateLines.length ? updateLines.join('\n') : '_Tidak ada plugin ditemukan_';
+      const updateDetails = updateLines.length ? updateLines.join('\n') : '_No plugins found_';
 
-      const finalText = `✅ *Update Berhasil!*\n\nTotal *${pluginFiles.length}* plugin telah diperbarui.\n\n*Status Update:*\n${updateDetails}`;
+      const finalText = `✅ *Update Successful!*\n\nTotal *${pluginFiles.length}* plugins have been updated.\n\n*Update Status:*\n${updateDetails}`;
 
       await bot.editMessageText(finalText, {
         chat_id: chatId,
@@ -125,7 +125,7 @@ module.exports = {
       });
     } catch (error) {
       console.error('Updater Error:', error);
-      await bot.editMessageText('❌ *Gagal melakukan update.* Cek log konsol untuk detailnya.', {
+      await bot.editMessageText('❌ *Failed to update.* Check console logs for details.', {
         chat_id: chatId,
         message_id: waitMsg.message_id,
         parse_mode: 'Markdown'

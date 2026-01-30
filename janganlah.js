@@ -1,18 +1,18 @@
 const localMessages = [
   {
-    message: 'Janganlah kau bandingkan prosesmu dengan orang lain. Setiap orang punya garis waktunya masing-masing.',
+    message: 'Don\'t compare your progress with others. Everyone has their own timeline.',
     creator: 'Hazel'
   },
   {
-    message: 'Janganlah terlalu keras pada dirimu sendiri. Kamu sudah melakukan yang terbaik dengan apa yang kamu punya.',
+    message: 'Don\'t be too hard on yourself. You\'re doing your best with what you have.',
     creator: 'Hazel'
   },
   {
-    message: 'Janganlah berhenti hanya karena lelah. Berhentilah jika tujuanmu sudah tercapai.',
+    message: 'Don\'t stop just because you\'re tired. Stop when you\'ve achieved your goal.',
     creator: 'Hazel'
   },
   {
-    message: 'Janganlah lupa istirahat. Produktif itu penting, tapi waras lebih penting.',
+    message: 'Don\'t forget to rest. Productivity is important, but sanity is more important.',
     creator: 'Hazel'
   }
 ];
@@ -20,18 +20,18 @@ const localMessages = [
 module.exports = {
   name: 'janganlah',
   version: '2.0.0',
-  description: 'Mendapatkan kata-kata nasihat lokal (tanpa API)',
+  description: 'Get local words of wisdom (no API)',
   commands: ['janganlah', 'nasihat'],
 
   async execute(bot, msg, args, botInstance) {
     const chatId = msg.chat.id;
-    const loadingMsg = await bot.sendMessage(chatId, '💭 *Merenung sejenak...*', { parse_mode: 'Markdown' });
+    const loadingMsg = await bot.sendMessage(chatId, '💭 *Contemplating for a moment...*', { parse_mode: 'Markdown' });
 
     try {
       const random = localMessages[Math.floor(Math.random() * localMessages.length)];
 
       const text = `
-📜 *PESAN BIJAK*
+📜 *WISE MESSAGE*
 ━━━━━━━━━━━━━━━━━━━━
 "${random.message}"
 
@@ -45,7 +45,7 @@ module.exports = {
       });
     } catch (error) {
       console.error('Error Janganlah Plugin:', error.message);
-      await bot.editMessageText('⚠️ Gagal memproses pesan bijak.', {
+      await bot.editMessageText('⚠️ Failed to process wise message.', {
         chat_id: chatId,
         message_id: loadingMsg.message_id
       });

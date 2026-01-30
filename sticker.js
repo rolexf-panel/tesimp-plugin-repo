@@ -31,8 +31,8 @@ module.exports = {
       const apiKey = process.env.TENOR_API_KEY;
       if (!apiKey) {
         return bot.editMessageText(
-          '⚠️ TENOR_API_KEY belum diset di environment.\n' +
-          'Set dulu lalu restart bot.',
+          '⚠️ TENOR_API_KEY is not set in environment.\n' +
+          'Please set it and restart the bot.',
           {
             chat_id: chatId,
             message_id: statusMsg.message_id
@@ -77,9 +77,9 @@ module.exports = {
           }
         }
         
-        if (stickers.length > limit) {
+        if (results.length > limit) {
           await bot.sendMessage(chatId,
-            `📦 Showing ${limit} of ${stickers.length} stickers found.\n` +
+            `📦 Showing ${limit} of ${results.length} stickers found.\n` +
             `Search for: *${query}*`,
             { parse_mode: 'Markdown' }
           );

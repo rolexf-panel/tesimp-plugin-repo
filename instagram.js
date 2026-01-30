@@ -34,9 +34,9 @@ module.exports = {
       const base = process.env.IG_DL_API_BASE;
       if (!base) {
         return bot.editMessageText(
-          '⚠️ IG_DL_API_BASE belum diset di environment.\n' +
-          'Set ke endpoint API downloader Instagram milikmu.\n' +
-          'Contoh response diharapkan: { status: true, result: { media: [ { url,type }, ... ] } }',
+          '⚠️ IG_DL_API_BASE is not set in environment.\n' +
+          'Set it to your Instagram downloader API endpoint.\n' +
+          'Expected response example: { status: true, result: { media: [ { url,type }, ... ] } }',
           {
             chat_id: chatId,
             message_id: statusMsg.message_id

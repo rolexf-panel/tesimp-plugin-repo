@@ -31,8 +31,8 @@ module.exports = {
       const accessKey = process.env.UNSPLASH_ACCESS_KEY;
       if (!accessKey) {
         return bot.editMessageText(
-          '⚠️ UNSPLASH_ACCESS_KEY belum diset di environment.\n' +
-          'Set dulu lalu restart bot.',
+          '⚠️ UNSPLASH_ACCESS_KEY is not set in environment.\n' +
+          'Please set it and restart the bot.',
           {
             chat_id: chatId,
             message_id: statusMsg.message_id
@@ -124,7 +124,7 @@ module.exports = {
       const accessKey = process.env.UNSPLASH_ACCESS_KEY;
       if (!accessKey) {
         return bot.answerCallbackQuery(query.id, {
-          text: 'UNSPLASH_ACCESS_KEY belum diset.',
+          text: 'UNSPLASH_ACCESS_KEY is not set.',
           show_alert: true
         });
       }
