@@ -14,6 +14,12 @@ on:
         required: true
       file_id:
         description: 'Telegram File ID'
+        required: false
+      source_message_id:
+        description: 'Source Message ID (to get fresh file reference)'
+        required: true
+      source_chat_id:
+        description: 'Source Chat ID (where original file was sent)'
         required: true
       file_name:
         description: 'File Name'
@@ -70,6 +76,8 @@ jobs:
             "user_id": "${{ github.event.inputs.user_id }}",
             "message_id": "${{ github.event.inputs.message_id }}",
             "file_id": "${{ github.event.inputs.file_id }}",
+            "source_message_id": "${{ github.event.inputs.source_message_id }}",
+            "source_chat_id": "${{ github.event.inputs.source_chat_id }}",
             "file_name": "${{ github.event.inputs.file_name }}",
             "file_size": "${{ github.event.inputs.file_size }}",
             "file_type": "${{ github.event.inputs.file_type }}",
