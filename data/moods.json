@@ -1,0 +1,62 @@
+{
+  "happy": [
+    "😊 That’s great to hear! Keep enjoying the moment.",
+    "😄 Happiness looks good on you today.",
+    "✨ Love that energy! Spread it around.",
+    "🥳 High five! Celebrate those wins, no matter how small.",
+    "🌟 You're absolutely glowing right now!",
+    "🌈 This is wonderful news; you deserve this joy.",
+    "🎈 Keep that positive vibe going, it's contagious!",
+    "🍀 So glad to see things are going your way.",
+    "🌻 Your happiness just made my day a little brighter too.",
+    "🙌 Yes! Cherish this feeling and soak it all in."
+  ],
+  "sad": [
+    "😔 I’m sorry you’re feeling this way. You’re not alone.",
+    "💙 It’s okay to feel sad sometimes. Take it slow.",
+    "🌧 Even rainy days pass eventually.",
+    "🫂 Sending a virtual hug your way. Hang in there.",
+    "🥀 I'm here to listen whenever you're ready to talk.",
+    "🩹 Be gentle with yourself today; you're doing your best.",
+    "☁️ It's alright to not be okay right now.",
+    "🌊 Let the feelings flow; better days are on the horizon.",
+    "🕯️ Wishing you some peace and comfort in this moment.",
+    "🌑 Remember that even the moon has phases; this too shall pass."
+  ],
+  "tired": [
+    "😴 Sounds like you need a break. Don’t forget to rest.",
+    "🛌 Your body is asking for some recharge time.",
+    "☕ Maybe a short rest or a drink could help.",
+    "🔋 Low battery mode? Time to disconnect for a while.",
+    "🌙 You’ve worked hard; give yourself permission to do nothing.",
+    "🧘 Take a moment to just sit still and breathe.",
+    "🔌 Time to unplug and find some quiet space.",
+    "🧸 Rest is productive too. Sleep well when you can.",
+    "🏙️ The world can wait while you recover your energy.",
+    "🧊 How about a splash of cold water or a quick stretch?"
+  ],
+  "angry": [
+    "😠 Take a deep breath. Let’s slow things down.",
+    "🔥 Strong emotions happen. Give yourself a moment.",
+    "🌬 Try breathing in… and out.",
+    "🧊 Maybe a bit of space will help clear the air.",
+    "🛑 It's okay to feel frustrated, but don't let it consume you.",
+    "🥊 If you need to vent, I'm here to listen safely.",
+    "🌊 Imagine your anger as a wave that will eventually recede.",
+    "⏳ Take ten seconds before reacting; you’ve got this.",
+    "🍃 Let’s try to find a calm center amidst the storm.",
+    "👣 Perhaps a short walk could help burn off that steam."
+  ],
+  "bored": [
+    "😐 Boredom detected. Want something fun?",
+    "🎲 Maybe try a game or ask me a question.",
+    "💡 Sometimes boredom sparks new ideas.",
+    "🌍 If you could be anywhere else right now, where would it be?",
+    "🍿 Want a movie recommendation or a fun fact?",
+    "🧩 How about a quick brain teaser to pass the time?",
+    "🎨 This might be a great time to start a small doodle.",
+    "🛸 Let’s explore a random topic—pick a number from 1 to 100.",
+    "📚 Boredom is just an invitation to a new adventure.",
+    "🧪 Did you know that boredom can actually boost creativity?"
+  ]
+}
