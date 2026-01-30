@@ -184,7 +184,7 @@ async def download_file(client, file_id, file_name, progress_tracker):
         raise
 
 
-async def upload_to_pixeldrain(file_path, progress_tracker):
+async def upload_to_pixeldrain(file_path, progress_tracker, api_key=None):
     """Upload file to Pixeldrain with progress tracking"""
     print(f"Starting upload to Pixeldrain: {file_path}")
     progress_tracker.phase = "uploading"
@@ -194,6 +194,16 @@ async def upload_to_pixeldrain(file_path, progress_tracker):
     file_size = os.path.getsize(file_path)
     
     try:
+        # Prepare authentication
+        auth = None
+        if api_key:
+            # Use API key authentication (recommended)
+            auth = aiohttp.BasicAuth('', api_key)
+            print("Using API key authentication")
+        else:
+            print("WARNING: No API key provided - upload may fail!")
+            print("Get free API key at: https://pixeldrain.com/user/api_keys")
+        
         async with aiohttp.ClientSession() as session:
             async with aiofiles.open(file_path, 'rb') as f:
                 # Read file in chunks
@@ -221,8 +231,10 @@ async def upload_to_pixeldrain(file_path, progress_tracker):
                              filename=os.path.basename(file_path),
                              content_type='application/octet-stream')
 
-                # Upload
-                async with session.post('https://pixeldrain.com/api/file', data=data) as response:
+                # Upload with authentication
+                async with session.post('https://pixeldrain.com/api/file', 
+                                       data=data,
+                                       auth=auth) as response:
                     if response.status == 201:
                         result = await response.json()
                         
@@ -265,10 +277,15 @@ async def main():
     file_id = config['file_id']
     file_name = config['file_name']
     file_size = int(config['file_size'])
+    pixeldrain_api_key = config.get('pixeldrain_api_key')  # Optional
 
     print(f"File: {file_name}")
     print(f"Size: {file_size / (1024*1024):.2f} MB")
     print(f"Chat ID: {chat_id}")
+    if pixeldrain_api_key:
+        print(f"Pixeldrain API: Authenticated")
+    else:
+        print(f"Pixeldrain API: Anonymous (may fail!)")
     print()
 
     # Initialize progress tracker
@@ -307,7 +324,7 @@ async def main():
                 raise Exception("Download failed - file not found")
 
             # Upload to Pixeldrain
-            pixeldrain_id = await upload_to_pixeldrain(file_path, progress)
+            pixeldrain_id = await upload_to_pixeldrain(file_path, progress, pixeldrain_api_key)
             
             if not pixeldrain_id:
                 raise Exception("Upload to Pixeldrain failed")
