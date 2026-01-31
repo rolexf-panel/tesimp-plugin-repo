@@ -2,15 +2,14 @@ const axios = require('axios');
 
 module.exports = {
   name: 'bratvid',
-  version: '2.1.0',
-  description: 'Generate brat-style animated video with safety error handling',
+  version: '2.2.0',
+  description: 'Generate brat-style animated video with stable error handling',
   author: 'Plugin Developer',
   commands: ['bratvid', 'bratv'],
   
   async execute(bot, msg, args) {
     const chatId = msg.chat.id;
     
-    // 1. Validasi input
     if (args.length === 0) {
       return bot.sendMessage(chatId,
         '❌ *Usage:*\n' +
@@ -22,42 +21,41 @@ module.exports = {
     }
     
     const text = args.join(' ');
-    
     if (text.length > 100) {
       return bot.sendMessage(chatId, '❌ Text too long! Maximum 100 characters.');
     }
     
     let statusMsg;
     try {
-      // 2. Kirim status loading
       statusMsg = await bot.sendMessage(chatId, '🎬 *Generating brat video...*', { parse_mode: 'Markdown' });
       
       const apiKey = process.env.BETABOTZ_API || '';
       const apiUrl = `https://api.betabotz.eu.org/api/maker/bratvideo?text=${encodeURIComponent(text)}&apikey=${apiKey}`;
       
-      // 3. Request ke API
       const response = await axios.get(apiUrl, {
         responseType: 'arraybuffer',
-        timeout: 30000 // Timeout 30 detik agar tidak gantung
+        timeout: 45000 // Menunggu hingga 45 detik
       });
 
-      // 4. Cek apakah yang diterima HTML (Error page) atau Video
-      const firstBytes = response.data.slice(0, 15).toString().toLowerCase();
-      if (firstBytes.includes('<html') || firstBytes.includes('<!doc')) {
-        // Buang ke catch dengan pesan khusus
-        const errorHtml = response.data.toString('utf-8');
-        throw new Error(`API_RETURNED_HTML: ${errorHtml.substring(0, 500)}`); 
+      // Validasi apakah data ada
+      if (!response || !response.data) {
+        throw new Error('EMPTY_RESPONSE');
+      }
+
+      // Cek apakah response berupa HTML (Error dari Cloudflare/Server)
+      const contentString = response.data.slice(0, 100).toString().toLowerCase();
+      if (contentString.includes('<html') || contentString.includes('<!doctype')) {
+        console.error('--- [DEBUG HTML RESPONSE] ---');
+        console.error(response.data.toString()); // Log lengkap di terminal VPS
+        throw new Error('SERVER_RETURNED_HTML');
       }
       
       const buffer = Buffer.from(response.data, 'binary');
       
-      // 5. Hapus pesan loading dan kirim video
       if (statusMsg) await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
       
-      const caption = `🎬 *BRAT Video*\n━━━━━━━━━━━━━━━━━━━━\n\n📝 Text: \`${text}\``;
-      
       await bot.sendVideo(chatId, buffer, {
-        caption,
+        caption: `🎬 *BRAT Video*\n━━━━━━━━━━━━━━━━━━━━\n\n📝 Text: \`${text}\``,
         parse_mode: 'Markdown'
       });
       
@@ -65,29 +63,31 @@ module.exports = {
       // Hapus pesan loading jika gagal
       if (statusMsg) await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
 
-      let errorDisplay = error.message;
+      let errorDisplay = 'Terjadi kesalahan sistem.';
 
-      // Debugging detail di terminal VPS
-      console.error('--- [ERROR LOG] ---');
-      if (error.message.includes('API_RETURNED_HTML')) {
-        console.error('Server mengembalikan HTML (Kemungkinan API Key salah atau Rate Limit).');
-        console.error('Detail:', error.message.replace('API_RETURNED_HTML: ', ''));
-        errorDisplay = 'API returned HTML (Check API Key or limit)';
+      // LOGIKA PENANGANAN ERROR YANG AMAN (TIDAK AKAN CRASH)
+      if (error.message === 'SERVER_RETURNED_HTML') {
+        errorDisplay = 'API Key salah, Limit habis, atau Server sedang Maintenance.';
+      } else if (error.message === 'EMPTY_RESPONSE') {
+        errorDisplay = 'Server API tidak memberikan respon apa pun.';
       } else if (error.response) {
-        // Jika ada response tapi status code bukan 2xx
-        const dataStr = error.response.data instanceof Buffer ? error.response.data.toString() : error.response.data;
-        console.error('Response Error:', dataStr);
-        errorDisplay = `Server Error: ${error.response.status}`;
+        // Error dari server (404, 500, dll)
+        errorDisplay = `API Error: ${error.response.status}`;
+        console.error('Server Response Error:', error.response.status);
+      } else if (error.request) {
+        // Error jaringan (tidak ada respon)
+        errorDisplay = 'Gagal terhubung ke API. Cek koneksi VPS.';
+        console.error('Network Error:', error.message);
       } else {
-        // Jika tidak ada response (Network error)
-        console.error('Network/System Error:', error.message);
+        errorDisplay = error.message;
       }
-      console.error('-------------------');
+
+      console.error('Final Error Catch:', error.message);
 
       await bot.sendMessage(chatId,
         '❌ *Failed to generate brat video!*\n\n' +
-        `*Error:* \`${errorDisplay}\`\n\n` +
-        'Pastikan API Key sudah benar di file `.env`',
+        `*Reason:* \`${errorDisplay}\`\n\n` +
+        'Cek log terminal untuk detail teknis.',
         { parse_mode: 'Markdown' }
       );
     }
