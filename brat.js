@@ -1,8 +1,8 @@
-const { createCanvas } = require('canvas');
+const axios = require('axios');
 
 module.exports = {
   name: 'brat',
-  version: '1.0.0',
+  version: '2.0.0',
   description: 'Generate brat-style text images with green background',
   author: 'Plugin Developer',
   commands: ['brat'],
@@ -30,34 +30,15 @@ module.exports = {
     try {
       const statusMsg = await bot.sendMessage(chatId, '🎨 Generating brat image...');
       
-      // Create canvas
-      const width = 800;
-      const height = 800;
-      const canvas = createCanvas(width, height);
-      const ctx = canvas.getContext('2d');
+      const apiKey = process.env.BETABOTZ_API || '';
+      const apiUrl = `https://api.betabotz.eu.org/api/maker/brat?text=${encodeURIComponent(text)}&apikey=${apiKey}`;
       
-      // Brat green background (#8ACE00 or similar)
-      ctx.fillStyle = '#8ACE00';
-      ctx.fillRect(0, 0, width, height);
+      // Download image
+      const response = await axios.get(apiUrl, {
+        responseType: 'arraybuffer'
+      });
       
-      // Set text style (Arial Black or similar bold font)
-      ctx.fillStyle = '#000000';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      // Calculate font size based on text length
-      let fontSize = 120;
-      if (text.length > 10) fontSize = 100;
-      if (text.length > 20) fontSize = 80;
-      if (text.length > 30) fontSize = 60;
-      
-      ctx.font = `bold ${fontSize}px Arial`;
-      
-      // Draw text in center (lowercase for brat style)
-      ctx.fillText(text.toLowerCase(), width / 2, height / 2);
-      
-      // Convert to buffer
-      const buffer = canvas.toBuffer('image/png');
+      const buffer = Buffer.from(response.data, 'binary');
       
       await bot.deleteMessage(chatId, statusMsg.message_id);
       
@@ -70,10 +51,11 @@ module.exports = {
       });
       
     } catch (error) {
-      console.error('Brat generation error:', error);
+      console.error('Brat generation error:', error.response?.data || error.message);
       await bot.sendMessage(chatId,
         '❌ Failed to generate brat image!\n\n' +
-        `Error: ${error.message}`
+        `Error: ${error.message}\n\n` +
+        'Make sure BETABOTZ_API is set in .env file'
       );
     }
   }
