@@ -52,6 +52,8 @@ module.exports = {
       
     } catch (error) {
       console.error('Brat video generation error:', error.response?.data || error.message);
+      // Di bagian catch error atau tempat log tersebut muncul:
+      console.log(error.data.toString('utf-8'));
       await bot.sendMessage(chatId,
         '❌ Failed to generate brat video!\n\n' +
         `Error: ${error.message}\n\n` +
