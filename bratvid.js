@@ -30,19 +30,22 @@ module.exports = {
       statusMsg = await bot.sendMessage(chatId, '🎬 *Generating brat video...*', { parse_mode: 'Markdown' });
 
       const apiKey = process.env.BETABOTZ_API || '';
-      const apiUrl = `https://api.betabotz.eu.org/api/maker/bratvideo?text=${encodeURIComponent(text)}&apikey=${apiKey}`;
+      
+      // Construct the API URL with the specified format
+      const apiUrl = `https://api.betabotz.eu.org/api/maker/brat-video?apikey=${apiKey}&text=${encodeURIComponent(text)}`;
 
+      // Fetch the video from the API
       const response = await axios.get(apiUrl, {
         responseType: 'arraybuffer',
         timeout: 45000 // Wait for up to 45 seconds
       });
 
-      // Check if the response or response.data is valid
+      // Ensure that response data exists and is valid
       if (!response || !response.data) {
         throw new Error('EMPTY_RESPONSE');
       }
 
-      // Check if the response is HTML (indicating an error page)
+      // Check if the response contains HTML (which could indicate an error page)
       const contentString = response.data.slice(0, 100).toString().toLowerCase();
       if (contentString.includes('<html') || contentString.includes('<!doctype')) {
         console.error('--- [DEBUG HTML RESPONSE] ---');
@@ -52,9 +55,10 @@ module.exports = {
 
       const buffer = Buffer.from(response.data, 'binary');
 
-      // Delete status message if video is generated successfully
+      // Delete status message once video is generated
       if (statusMsg) await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
 
+      // Send the generated video to the user
       await bot.sendVideo(chatId, buffer, {
         caption: `🎬 *BRAT Video*\n━━━━━━━━━━━━━━━━━━━━\n\n📝 Text: ${text}`,
         parse_mode: 'Markdown'
