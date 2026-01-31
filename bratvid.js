@@ -2,21 +2,21 @@ const axios = require('axios');
 
 module.exports = {
   name: 'bratvid',
-  version: '2.0.0',
-  description: 'Generate brat-style animated video',
+  version: '2.1.0',
+  description: 'Generate brat-style animated video with safety error handling',
   author: 'Plugin Developer',
   commands: ['bratvid', 'bratv'],
   
   async execute(bot, msg, args) {
     const chatId = msg.chat.id;
     
+    // 1. Validasi input
     if (args.length === 0) {
       return bot.sendMessage(chatId,
         '❌ *Usage:*\n' +
         '`/bratvid <text>`\n\n' +
         '*Example:*\n' +
-        '`/bratvid club classics`\n' +
-        '`/bratv brat summer`',
+        '`/bratvid club classics`',
         { parse_mode: 'Markdown' }
       );
     }
@@ -29,27 +29,32 @@ module.exports = {
     
     let statusMsg;
     try {
-      statusMsg = await bot.sendMessage(chatId, '🎬 Generating brat video...');
+      // 2. Kirim status loading
+      statusMsg = await bot.sendMessage(chatId, '🎬 *Generating brat video...*', { parse_mode: 'Markdown' });
       
       const apiKey = process.env.BETABOTZ_API || '';
       const apiUrl = `https://api.betabotz.eu.org/api/maker/bratvideo?text=${encodeURIComponent(text)}&apikey=${apiKey}`;
       
+      // 3. Request ke API
       const response = await axios.get(apiUrl, {
-        responseType: 'arraybuffer' // Kita minta data mentah (buffer)
+        responseType: 'arraybuffer',
+        timeout: 30000 // Timeout 30 detik agar tidak gantung
       });
 
-      // Cek apakah responnya sebenarnya HTML (biasanya diawali '<!DOCTYPE' atau '<html')
-      const firstFewBytes = response.data.slice(0, 15).toString().toLowerCase();
-      if (firstFewBytes.includes('<html') || firstFewBytes.includes('<!doc')) {
-        throw new Error('RECEIVE_HTML_INSTEAD_OF_VIDEO');
+      // 4. Cek apakah yang diterima HTML (Error page) atau Video
+      const firstBytes = response.data.slice(0, 15).toString().toLowerCase();
+      if (firstBytes.includes('<html') || firstBytes.includes('<!doc')) {
+        // Buang ke catch dengan pesan khusus
+        const errorHtml = response.data.toString('utf-8');
+        throw new Error(`API_RETURNED_HTML: ${errorHtml.substring(0, 500)}`); 
       }
       
       const buffer = Buffer.from(response.data, 'binary');
       
-      await bot.deleteMessage(chatId, statusMsg.message_id);
+      // 5. Hapus pesan loading dan kirim video
+      if (statusMsg) await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
       
-      const caption = `🎬 *BRAT Video*\n━━━━━━━━━━━━━━━━━━━━\n\n` +
-                      `📝 Text: ${text}`;
+      const caption = `🎬 *BRAT Video*\n━━━━━━━━━━━━━━━━━━━━\n\n📝 Text: \`${text}\``;
       
       await bot.sendVideo(chatId, buffer, {
         caption,
@@ -57,26 +62,32 @@ module.exports = {
       });
       
     } catch (error) {
-      if (statusMsg) await bot.deleteMessage(chatId, statusMsg.message_id);
+      // Hapus pesan loading jika gagal
+      if (statusMsg) await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
 
-      // --- LOGIKA DECODE ERROR ---
-      let errorDetail = error.message;
+      let errorDisplay = error.message;
 
-      if (error.response?.data instanceof Buffer || error.message === 'RECEIVE_HTML_INSTEAD_OF_VIDEO') {
-        // Jika ada buffer error, ubah ke string teks agar bisa dibaca di console
-        const htmlError = error.response?.data?.toString('utf-8') || 'Cloudflare/Server Error (HTML)';
-        console.error('--- [DECODE ERROR HTML] ---');
-        console.error(htmlError); // Ini akan muncul di terminal kamu
-        console.error('---------------------------');
-        errorDetail = 'API returned HTML (Possible 404, Rate Limit, or Invalid API Key)';
+      // Debugging detail di terminal VPS
+      console.error('--- [ERROR LOG] ---');
+      if (error.message.includes('API_RETURNED_HTML')) {
+        console.error('Server mengembalikan HTML (Kemungkinan API Key salah atau Rate Limit).');
+        console.error('Detail:', error.message.replace('API_RETURNED_HTML: ', ''));
+        errorDisplay = 'API returned HTML (Check API Key or limit)';
+      } else if (error.response) {
+        // Jika ada response tapi status code bukan 2xx
+        const dataStr = error.response.data instanceof Buffer ? error.response.data.toString() : error.response.data;
+        console.error('Response Error:', dataStr);
+        errorDisplay = `Server Error: ${error.response.status}`;
       } else {
-        console.error('Brat video generation error:', error.message);
+        // Jika tidak ada response (Network error)
+        console.error('Network/System Error:', error.message);
       }
+      console.error('-------------------');
 
       await bot.sendMessage(chatId,
         '❌ *Failed to generate brat video!*\n\n' +
-        `*Message:* \`${errorDetail}\`\n\n` +
-        'Silakan cek console untuk detail error HTML.',
+        `*Error:* \`${errorDisplay}\`\n\n` +
+        'Pastikan API Key sudah benar di file `.env`',
         { parse_mode: 'Markdown' }
       );
     }
