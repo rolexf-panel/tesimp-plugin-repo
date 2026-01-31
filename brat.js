@@ -1,4 +1,4 @@
-const axios = require('axios');
+const { createCanvas } = require('canvas');
 
 module.exports = {
   name: 'brat',
@@ -30,15 +30,41 @@ module.exports = {
     try {
       const statusMsg = await bot.sendMessage(chatId, '🎨 Generating brat image...');
       
-      // Using brat generator API
-      const imageUrl = `https://brat.caleb.cam/api?text=${encodeURIComponent(text)}`;
+      // Create canvas
+      const width = 800;
+      const height = 800;
+      const canvas = createCanvas(width, height);
+      const ctx = canvas.getContext('2d');
+      
+      // Brat green background (#8ACE00 or similar)
+      ctx.fillStyle = '#8ACE00';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Set text style (Arial Black or similar bold font)
+      ctx.fillStyle = '#000000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // Calculate font size based on text length
+      let fontSize = 120;
+      if (text.length > 10) fontSize = 100;
+      if (text.length > 20) fontSize = 80;
+      if (text.length > 30) fontSize = 60;
+      
+      ctx.font = `bold ${fontSize}px Arial`;
+      
+      // Draw text in center (lowercase for brat style)
+      ctx.fillText(text.toLowerCase(), width / 2, height / 2);
+      
+      // Convert to buffer
+      const buffer = canvas.toBuffer('image/png');
       
       await bot.deleteMessage(chatId, statusMsg.message_id);
       
       const caption = `🎨 *BRAT Generator*\n━━━━━━━━━━━━━━━━━━━━\n\n` +
                      `📝 Text: ${text}`;
       
-      await bot.sendPhoto(chatId, imageUrl, {
+      await bot.sendPhoto(chatId, buffer, {
         caption,
         parse_mode: 'Markdown'
       });
